@@ -1,0 +1,317 @@
+{
+  ".gitignore": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul .gitignore"
+  },
+  ".ngodingpakeaiignore": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul .ngodingpakeaiignore"
+  },
+  "AGENTS.md": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul AGENTS.md"
+  },
+  "CLAUDE.md": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul CLAUDE.md"
+  },
+  "components.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul components.json"
+  },
+  "drizzle.config.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul drizzle.config.ts"
+  },
+  "eslint.config.mjs": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul eslint.config.mjs"
+  },
+  "next.config.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul next.config.ts"
+  },
+  "package-lock.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul package-lock.json"
+  },
+  "package.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul package.json"
+  },
+  "postcss.config.mjs": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul postcss.config.mjs"
+  },
+  "README.md": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul README.md"
+  },
+  "run.sh": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul run.sh"
+  },
+  "scripts/seed.js": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul scripts/seed.js"
+  },
+  "seed.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul seed.ts"
+  },
+  "src/app/api/auth/login/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/auth/login/route.ts"
+  },
+  "src/app/api/auth/logout/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/auth/logout/route.ts"
+  },
+  "src/app/api/auth/me/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/auth/me/route.ts"
+  },
+  "src/app/api/categories/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/categories/route.ts"
+  },
+  "src/app/api/categories/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/categories/[id]/route.ts"
+  },
+  "src/app/api/dashboard/low-stock/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/dashboard/low-stock/route.ts"
+  },
+  "src/app/api/dashboard/monthly-trend/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/dashboard/monthly-trend/route.ts"
+  },
+  "src/app/api/dashboard/summary/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/dashboard/summary/route.ts"
+  },
+  "src/app/api/import/preview/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/import/preview/route.ts"
+  },
+  "src/app/api/import/save/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/import/save/route.ts"
+  },
+  "src/app/api/import/template/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/import/template/route.ts"
+  },
+  "src/app/api/pending-carts/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/pending-carts/route.ts"
+  },
+  "src/app/api/pending-carts/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/pending-carts/[id]/route.ts"
+  },
+  "src/app/api/products/labels/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/products/labels/route.ts"
+  },
+  "src/app/api/products/lookup/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/products/lookup/route.ts"
+  },
+  "src/app/api/products/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/products/route.ts"
+  },
+  "src/app/api/products/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/products/[id]/route.ts"
+  },
+  "src/app/api/purchase-orders/history/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/purchase-orders/history/excel/route.ts"
+  },
+  "src/app/api/purchase-orders/history/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/purchase-orders/history/route.ts"
+  },
+  "src/app/api/purchase-orders/pending/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/purchase-orders/pending/route.ts"
+  },
+  "src/app/api/purchase-orders/receive/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/purchase-orders/receive/route.ts"
+  },
+  "src/app/api/purchase-orders/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/purchase-orders/route.ts"
+  },
+  "src/app/api/purchase-orders/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/purchase-orders/[id]/route.ts"
+  },
+  "src/app/api/reports/attendance/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/attendance/excel/route.ts"
+  },
+  "src/app/api/reports/attendance/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/attendance/route.ts"
+  },
+  "src/app/api/reports/sales/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/sales/excel/route.ts"
+  },
+  "src/app/api/reports/sales/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/sales/route.ts"
+  },
+  "src/app/api/reports/shifts/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/shifts/excel/route.ts"
+  },
+  "src/app/api/reports/shifts/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/shifts/route.ts"
+  },
+  "src/app/api/reports/stock-movements/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/stock-movements/excel/route.ts"
+  },
+  "src/app/api/reports/stock-movements/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/stock-movements/route.ts"
+  },
+  "src/app/api/reports/top-products/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/top-products/excel/route.ts"
+  },
+  "src/app/api/reports/top-products/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/reports/top-products/route.ts"
+  },
+  "src/app/api/returns/excel/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/returns/excel/route.ts"
+  },
+  "src/app/api/returns/purchase/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/returns/purchase/route.ts"
+  },
+  "src/app/api/returns/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/returns/route.ts"
+  },
+  "src/app/api/returns/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/returns/[id]/route.ts"
+  },
+  "src/app/api/shifts/active/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/shifts/active/route.ts"
+  },
+  "src/app/api/shifts/close/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/shifts/close/route.ts"
+  },
+  "src/app/api/shifts/open/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/shifts/open/route.ts"
+  },
+  "src/app/api/transactions/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/transactions/route.ts"
+  },
+  "src/app/api/transactions/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/transactions/[id]/route.ts"
+  },
+  "src/app/api/users/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/users/route.ts"
+  },
+  "src/app/api/users/[id]/route.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/api/users/[id]/route.ts"
+  },
+  "src/app/globals.css": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/globals.css"
+  },
+  "src/app/import/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/import/page.tsx"
+  },
+  "src/app/layout.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/layout.tsx"
+  },
+  "src/app/login/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/login/page.tsx"
+  },
+  "src/app/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/page.tsx"
+  },
+  "src/app/pos/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/pos/page.tsx"
+  },
+  "src/app/products/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/products/page.tsx"
+  },
+  "src/app/purchase-orders/history/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/purchase-orders/history/page.tsx"
+  },
+  "src/app/purchase-orders/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/purchase-orders/page.tsx"
+  },
+  "src/app/purchase-orders/[id]/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/purchase-orders/[id]/page.tsx"
+  },
+  "src/app/purchase-orders/[id]/receive/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/purchase-orders/[id]/receive/page.tsx"
+  },
+  "src/app/reports/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/reports/page.tsx"
+  },
+  "src/app/reports/shifts/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/reports/shifts/page.tsx"
+  },
+  "src/app/reports/stock-movements/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/reports/stock-movements/page.tsx"
+  },
+  "src/app/returns/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/returns/page.tsx"
+  },
+  "src/app/transactions/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/transactions/page.tsx"
+  },
+  "src/app/users/page.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/app/users/page.tsx"
+  },
+  "src/components/layout/Sidebar.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/layout/Sidebar.tsx"
+  },
+  "src/components/ProtectedRoute.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ProtectedRoute.tsx"
+  },
+  "src/components/ReceiptModal.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ReceiptModal.tsx"
+  },
+  "src/components/ui/alert.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/alert.tsx"
+  },
+  "src/components/ui/badge.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/badge.tsx"
+  },
+  "src/components/ui/button.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/button.tsx"
+  },
+  "src/components/ui/card.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/card.tsx"
+  },
+  "src/components/ui/checkbox.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/checkbox.tsx"
+  },
+  "src/components/ui/dialog.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/dialog.tsx"
+  },
+  "src/components/ui/input.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/input.tsx"
+  },
+  "src/components/ui/label.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/label.tsx"
+  },
+  "src/components/ui/select.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/select.tsx"
+  },
+  "src/components/ui/table.tsx": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/components/ui/table.tsx"
+  },
+  "src/db/index.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/index.ts"
+  },
+  "src/db/migrations/0000_fearless_doctor_faustus.sql": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/migrations/0000_fearless_doctor_faustus.sql"
+  },
+  "src/db/migrations/0001_new_human_torch.sql": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/migrations/0001_new_human_torch.sql"
+  },
+  "src/db/migrations/meta/0000_snapshot.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/migrations/meta/0000_snapshot.json"
+  },
+  "src/db/migrations/meta/0001_snapshot.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/migrations/meta/0001_snapshot.json"
+  },
+  "src/db/migrations/meta/_journal.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/migrations/meta/_journal.json"
+  },
+  "src/db/schema.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/db/schema.ts"
+  },
+  "src/hooks/useSession.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/hooks/useSession.ts"
+  },
+  "src/lib/auth-helper.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/lib/auth-helper.ts"
+  },
+  "src/lib/excel-helper.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/lib/excel-helper.ts"
+  },
+  "src/lib/import-repository.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/lib/import-repository.ts"
+  },
+  "src/lib/import-validator.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/lib/import-validator.ts"
+  },
+  "src/lib/session.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/lib/session.ts"
+  },
+  "src/lib/utils.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/lib/utils.ts"
+  },
+  "src/middleware.ts": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul src/middleware.ts"
+  },
+  "tsconfig.json": {
+    "summary": "File ini adalah bagian dari sistem POS LOGMART untuk menangani modul tsconfig.json"
+  }
+}
