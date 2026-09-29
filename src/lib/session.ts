@@ -1,6 +1,7 @@
 import { jwtVerify, SignJWT } from "jose";
 
-const secretKey = process.env.JWT_SECRET || "logmart_super_secret_key_12345";
+const secretKey = process.env.JWT_SECRET;
+if (!secretKey) throw new Error("JWT_SECRET environment variable is missing");
 const key = new TextEncoder().encode(secretKey);
 
 export type SessionPayload = {
