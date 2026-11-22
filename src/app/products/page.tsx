@@ -653,7 +653,7 @@ export default function ProductsPage() {
                   </div>
                   <div>
                     <div className="text-xs text-slate-400 mb-1">Harga Jual</div>
-                    <div className="font-bold text-blue-700">{formatCurrency(product.price)}</div>
+                    <div className="font-bold text-brand-orange">{formatCurrency(product.price)}</div>
                   </div>
                 </div>
                 
@@ -667,7 +667,7 @@ export default function ProductsPage() {
                   
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit" onClick={() => { setEditingProduct(product); setIsProductDialogOpen(true); }}>
-                      <Edit className="w-4 h-4 text-blue-600" />
+                      <Edit className="w-4 h-4 text-brand-green" />
                     </Button>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-600" title="Hapus" onClick={() => handleDeleteProduct(product.id)}>
                       <Trash2 className="w-4 h-4" />

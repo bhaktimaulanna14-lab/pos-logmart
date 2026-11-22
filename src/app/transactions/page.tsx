@@ -154,7 +154,7 @@ export default function TransactionsPage() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        className="h-8 px-2 text-brand-green hover:text-brand-green hover:bg-brand-green/10"
                         onClick={() => fetchTransactionDetail(trx.transactionNumber, "detail")}
                         disabled={isLoadingDetail}
                       >
@@ -211,7 +211,7 @@ export default function TransactionsPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-slate-400">Total</div>
-                    <div className="font-bold text-blue-700">Rp {(trx.totalAmount || 0).toLocaleString("id-ID")}</div>
+                    <div className="font-bold text-brand-orange">Rp {(trx.totalAmount || 0).toLocaleString("id-ID")}</div>
                   </div>
                 </div>
 
@@ -219,7 +219,7 @@ export default function TransactionsPage() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                    className="h-8 text-brand-green border-brand-green/30 hover:bg-brand-green/10"
                     onClick={() => fetchTransactionDetail(trx.transactionNumber, "detail")}
                     disabled={isLoadingDetail}
                   >

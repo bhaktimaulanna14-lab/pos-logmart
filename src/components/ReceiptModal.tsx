@@ -134,7 +134,7 @@ export function ReceiptModal({ isOpen, onClose, transactionId }: ReceiptModalPro
               <Button variant="outline" onClick={onClose}>
                 Tutup
               </Button>
-              <Button onClick={printReceipt} className="gap-2 bg-slate-900 text-white" disabled={isLoading || !transaction || !!error}>
+              <Button onClick={printReceipt} className="gap-2 bg-brand-green hover:bg-brand-green-dark text-white" disabled={isLoading || !transaction || !!error}>
                 <Printer className="w-4 h-4" />
                 Cetak Struk
               </Button>

@@ -180,7 +180,7 @@ export default function PurchaseOrderHistoryPage() {
                                         ) : diff < 0 ? (
                                           <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200 text-[10px]">Kurang {Math.abs(diff)}</Badge>
                                         ) : (
-                                          <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200 text-[10px]">Lebih {diff}</Badge>
+                                          <Badge variant="outline" className="text-brand-green bg-brand-green/10 border-brand-green/30 text-[10px]">Lebih {diff}</Badge>
                                         )}
                                       </TableCell>
                                     </TableRow>
@@ -239,7 +239,7 @@ export default function PurchaseOrderHistoryPage() {
                     <div className="text-xs text-slate-400">Supplier</div>
                     <div className="font-medium text-slate-800">{po.supplierName}</div>
                   </div>
-                  <div className="flex items-center text-blue-600 text-sm font-medium">
+                  <div className="flex items-center text-brand-green text-sm font-medium">
                     {po.items?.length || 0} Item
                     {expandedId === po.id ? (
                       <ChevronDown className="w-4 h-4 ml-1" />
@@ -269,7 +269,7 @@ export default function PurchaseOrderHistoryPage() {
                           <div className="flex items-center justify-between mt-1">
                             <div className="text-xs">
                               Pesan: <span className="font-medium text-slate-700">{item.quantity}</span> | 
-                              Terima: <span className="font-bold text-blue-700 ml-1">{item.receivedQty}</span>
+                              Terima: <span className="font-bold text-brand-green ml-1">{item.receivedQty}</span>
                             </div>
                             <div>
                               {diff === 0 ? (
@@ -277,7 +277,7 @@ export default function PurchaseOrderHistoryPage() {
                               ) : diff < 0 ? (
                                 <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200 text-[10px] px-1.5 py-0">Kurang {Math.abs(diff)}</Badge>
                               ) : (
-                                <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200 text-[10px] px-1.5 py-0">Lebih {diff}</Badge>
+                                <Badge variant="outline" className="text-brand-green bg-brand-green/10 border-brand-green/30 text-[10px] px-1.5 py-0">Lebih {diff}</Badge>
                               )}
                             </div>
                           </div>

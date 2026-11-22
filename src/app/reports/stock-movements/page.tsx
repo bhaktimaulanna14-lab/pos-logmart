@@ -46,8 +46,8 @@ export default function StockMovementsReportPage() {
 
   const getBadgeVariant = (type: string, change: number) => {
     if (type === "penerimaan" || change > 0) return "bg-green-100 text-green-800";
-    if (type === "penjualan") return "bg-blue-100 text-blue-800";
-    if (type === "retur") return "bg-purple-100 text-purple-800";
+    if (type === "penjualan") return "bg-brand-green/15 text-brand-green-dark";
+    if (type === "retur") return "bg-brand-orange-light/15 text-orange-800";
     return "bg-slate-100 text-slate-800";
   };
 

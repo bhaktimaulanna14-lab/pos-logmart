@@ -202,6 +202,7 @@ export default function ReportsPage() {
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dataChart}>
+                <defs><linearGradient id="brandOrangeBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F7931E" /><stop offset="100%" stopColor="#F15A24" /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis 
                   dataKey="name" 
@@ -220,7 +221,7 @@ export default function ReportsPage() {
                   formatter={(value: number) => [`Rp ${value.toLocaleString("id-ID")}`, "Pendapatan"]}
                   cursor={{ fill: "rgba(0,0,0,0.05)" }}
                 />
-                <Bar dataKey="sales" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="sales" fill="url(#brandOrangeBar)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -263,24 +264,24 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+              <div className="flex justify-between items-center bg-brand-green/5 p-4 rounded-lg border border-brand-green/30">
                 <div>
-                  <div className="font-semibold text-blue-900">Shift Pagi</div>
-                  <div className="text-sm text-blue-700">07:00 - 15:00</div>
+                  <div className="font-semibold text-brand-green-dark">Shift Pagi</div>
+                  <div className="text-sm text-brand-green">07:00 - 15:00</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-lg text-blue-950">Rp 0</div>
-                  <div className="text-xs text-blue-600">0 transaksi</div>
+                  <div className="font-bold text-lg text-brand-green-dark">Rp 0</div>
+                  <div className="text-xs text-brand-green">0 transaksi</div>
                 </div>
               </div>
-              <div className="flex justify-between items-center bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+              <div className="flex justify-between items-center bg-brand-orange-light/5 p-4 rounded-lg border border-brand-orange-light/30">
                 <div>
-                  <div className="font-semibold text-indigo-900">Shift Malam</div>
-                  <div className="text-sm text-indigo-700">15:00 - 23:00</div>
+                  <div className="font-semibold text-orange-900">Shift Malam</div>
+                  <div className="text-sm text-brand-orange">15:00 - 23:00</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold text-lg text-indigo-950">Rp 0</div>
-                  <div className="text-xs text-indigo-600">0 transaksi</div>
+                  <div className="font-bold text-lg text-orange-900">Rp 0</div>
+                  <div className="text-xs text-brand-orange">0 transaksi</div>
                 </div>
               </div>
             </div>

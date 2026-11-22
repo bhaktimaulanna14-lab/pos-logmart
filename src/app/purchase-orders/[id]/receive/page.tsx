@@ -240,7 +240,7 @@ export default function ReceiveGoodsPage({
                     ) : diff < 0 ? (
                       <Badge variant="destructive">{diff}</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200">+{diff}</Badge>
+                      <Badge variant="outline" className="text-brand-green bg-brand-green/10 border-brand-green/30">+{diff}</Badge>
                     )}
                   </TableCell>
                 </TableRow>

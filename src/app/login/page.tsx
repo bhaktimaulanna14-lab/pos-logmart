@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Logo } from "@/components/brand/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -49,21 +50,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f1f8e9] via-white to-[#fff3e6] flex items-center justify-center p-4">
+      <div aria-hidden className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 rounded-full bg-brand-green-light/30 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-brand-orange-light/25 blur-3xl" />
+      <div className="relative max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-700 mb-4">
-            <Store className="w-8 h-8" />
-          </div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+          <Logo size="lg" showTagline className="mb-6" />
+          <h2 className="font-brand text-xl font-bold tracking-tight text-brand-ink">
             Logmart POS
           </h2>
-          <p className="text-slate-500 mt-2">
+          <p className="text-slate-500 mt-1">
             Silakan masuk ke akun Anda
           </p>
         </div>
 
-        <Card className="border-slate-200 shadow-md">
+        <Card className="border-0 shadow-xl shadow-brand-green/10 ring-1 ring-black/5 overflow-hidden pt-0">
+          <div className="h-1.5 bg-brand-stripe" />
           <form onSubmit={handleLogin}>
             <CardHeader>
               <CardTitle>Masuk</CardTitle>
@@ -111,7 +113,7 @@ export default function LoginPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+              <Button type="submit" className="w-full gap-2 h-10 bg-brand-gradient hover:brightness-105 shadow-md shadow-brand-green/25 font-semibold" disabled={isLoading}>
                 {isLoading ? "Memproses..." : (
                   <>
                     <LogIn className="w-4 h-4" /> Masuk Sistem
@@ -122,7 +124,7 @@ export default function LoginPage() {
           </form>
         </Card>
         
-        <p className="text-center text-xs text-slate-400">
+        <p className="text-center text-xs text-slate-500">
           &copy; {new Date().getFullYear()} Logmart Trowono. Hak cipta dilindungi.
         </p>
       </div>

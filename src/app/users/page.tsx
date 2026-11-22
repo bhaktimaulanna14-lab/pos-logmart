@@ -87,7 +87,7 @@ export default function UsersPage() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50">
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-600 hover:text-brand-green hover:bg-brand-green/10">
                         <Edit className="w-4 h-4" />
                       </Button>
                       <Button variant="ghost" size="sm" className="h-8 px-2 text-slate-600 hover:text-red-600 hover:bg-red-50">

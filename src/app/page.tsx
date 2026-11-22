@@ -101,7 +101,7 @@ export default function Home() {
       {/* Header */}
       <div className="border-b pb-4 md:pb-6">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-          Selamat Datang, <span className="text-blue-600 capitalize">{username}</span>
+          Selamat Datang, <span className="text-brand-green capitalize">{username}</span>
         </h1>
         <p className="text-sm md:text-base text-muted-foreground mt-1">
           Dashboard ringkasan penjualan Logmart Trowono
@@ -110,10 +110,10 @@ export default function Home() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <Card>
+        <Card className="border-l-4 border-l-brand-green">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Penjualan Hari Ini</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-brand-green" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -124,10 +124,10 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-brand-orange-light">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Transaksi Hari Ini</CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
+            <Receipt className="h-4 w-4 text-brand-orange" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{summary.todayTransactions}</div>
@@ -135,10 +135,10 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-l-4 border-l-brand-green-light">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Penjualan Bulan Ini</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-brand-green-light" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -153,20 +153,21 @@ export default function Home() {
       {/* Sales Trend Chart */}
       <div className="bg-white rounded-xl border shadow-sm p-6">
         <div className="flex items-center gap-2 mb-6">
-          <BarChart3 className="w-5 h-5 text-blue-600" />
+          <BarChart3 className="w-5 h-5 text-brand-green" />
           <h2 className="text-lg font-semibold text-slate-800">Tren Penjualan 6 Bulan Terakhir</h2>
         </div>
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <defs><linearGradient id="brandGreenBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8DC63F" /><stop offset="100%" stopColor="#009245" /></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e8efe3" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={formatRupiah} tick={{ fontSize: 11 }} width={70} />
               <Tooltip
                 formatter={(value: number) => [`Rp ${value.toLocaleString("id-ID")}`, "Penjualan"]}
                 labelStyle={{ fontWeight: "bold" }}
               />
-              <Bar dataKey="sales" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="sales" fill="url(#brandGreenBar)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

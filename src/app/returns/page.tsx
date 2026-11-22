@@ -267,11 +267,11 @@ export default function ReturnsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setIsFormOpen(true)} className="gap-2 bg-blue-700 hover:bg-blue-800">
+          <Button onClick={() => setIsFormOpen(true)} className="gap-2 bg-brand-green hover:bg-brand-green-dark">
             <PlusCircle className="w-4 h-4" />
             Retur Pelanggan
           </Button>
-          <Button onClick={() => setIsSupplierFormOpen(true)} className="gap-2 bg-purple-700 hover:bg-purple-800">
+          <Button onClick={() => setIsSupplierFormOpen(true)} className="gap-2 bg-brand-orange hover:bg-brand-orange/90">
             <PlusCircle className="w-4 h-4" />
             Retur Supplier
           </Button>
@@ -280,13 +280,13 @@ export default function ReturnsPage() {
 
       <div className="flex space-x-4 border-b border-slate-200">
         <button 
-          className={`pb-2 px-1 font-medium text-sm transition-colors ${activeTab === 'penjualan' ? 'border-b-2 border-blue-700 text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`pb-2 px-1 font-medium text-sm transition-colors ${activeTab === 'penjualan' ? 'border-b-2 border-brand-green text-brand-green' : 'text-slate-500 hover:text-slate-700'}`}
           onClick={() => setActiveTab('penjualan')}
         >
           Retur Penjualan (Pelanggan)
         </button>
         <button 
-          className={`pb-2 px-1 font-medium text-sm transition-colors ${activeTab === 'pembelian' ? 'border-b-2 border-purple-700 text-purple-700' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`pb-2 px-1 font-medium text-sm transition-colors ${activeTab === 'pembelian' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-slate-500 hover:text-slate-700'}`}
           onClick={() => setActiveTab('pembelian')}
         >
           Retur Pembelian (Supplier)
@@ -358,7 +358,7 @@ export default function ReturnsPage() {
             ) : (
               filteredReturns.map((ret) => (
                 <TableRow key={ret.id} className="hover:bg-slate-50/50">
-                  <TableCell className="font-medium text-blue-700">{ret.returnNumber}</TableCell>
+                  <TableCell className="font-medium text-brand-green">{ret.returnNumber}</TableCell>
                   <TableCell>{new Date(ret.createdAt).toLocaleString("id-ID")}</TableCell>
                   <TableCell>
                     {activeTab === 'penjualan' ? (ret.transactionId || "-") : (ret.supplierName || (ret.reason?.startsWith('[SUPPLIER] ') ? ret.reason.split('|')[0].replace('[SUPPLIER] ', '') : "-"))}
@@ -415,7 +415,7 @@ export default function ReturnsPage() {
             <div key={ret.id} className="bg-white border rounded-xl shadow-sm p-4 flex flex-col gap-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <div className="font-bold text-blue-700">{ret.returnNumber}</div>
+                  <div className="font-bold text-brand-green">{ret.returnNumber}</div>
                   <div className="text-xs text-slate-500">{new Date(ret.createdAt).toLocaleString("id-ID")}</div>
                 </div>
                 <Badge
@@ -452,7 +452,7 @@ export default function ReturnsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                  className="w-full text-brand-green border-brand-green/30 hover:bg-brand-green/10"
                   onClick={() => {
                     setSelectedReturn(ret);
                     setIsDetailOpen(true);

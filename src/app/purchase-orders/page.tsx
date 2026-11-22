@@ -308,7 +308,7 @@ export default function PurchaseOrdersPage() {
               </div>
 
               <div className="flex justify-end pt-1">
-                <Button variant="outline" size="sm" className="h-8 text-blue-600 border-blue-200 hover:bg-blue-50 w-full" asChild>
+                <Button variant="outline" size="sm" className="h-8 text-brand-green border-brand-green/30 hover:bg-brand-green/10 w-full" asChild>
                   <Link href={`/purchase-orders/${po.id}`}>
                     Lihat Detail
                   </Link>

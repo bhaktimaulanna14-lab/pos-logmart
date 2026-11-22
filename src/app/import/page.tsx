@@ -131,7 +131,7 @@ export default function ImportPage() {
         <div className="flex items-center justify-between relative max-w-3xl mx-auto">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-100 z-0 rounded-full" />
           <div 
-            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-slate-900 z-0 rounded-full transition-all duration-300"
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-brand-gradient z-0 rounded-full transition-all duration-300"
             style={{ width: `${((step - 1) / (steps.length - 1)) * 100}%` }}
           />
           
@@ -139,8 +139,8 @@ export default function ImportPage() {
             <div key={s.id} className="relative z-10 flex flex-col items-center gap-2">
               <div 
                 className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors duration-300
-                  ${step > s.id ? 'bg-slate-900 border-slate-900 text-white' : 
-                    step === s.id ? 'bg-white border-slate-900 text-slate-900' : 
+                  ${step > s.id ? 'bg-brand-green border-brand-green text-white' : 
+                    step === s.id ? 'bg-white border-brand-green text-brand-green' : 
                     'bg-white border-slate-200 text-slate-400'}`}
               >
                 {s.icon}
@@ -322,7 +322,7 @@ export default function ImportPage() {
                   </div>
                   <div className="bg-white p-4 rounded-lg border text-center">
                     <div className="text-sm text-slate-500 mb-1">Diperbarui</div>
-                    <div className="text-2xl font-semibold text-blue-600">{(window as any).importSummary?.updated || 0}</div>
+                    <div className="text-2xl font-semibold text-brand-green">{(window as any).importSummary?.updated || 0}</div>
                   </div>
                 </div>
                 <Button 

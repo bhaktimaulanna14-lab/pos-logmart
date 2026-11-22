@@ -598,13 +598,13 @@ export default function PosPage() {
                   {searchResults.map((product) => (
                     <Card
                       key={product.id}
-                      className={`cursor-pointer hover:border-blue-400 transition-colors active:scale-95 ${product.stock === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`cursor-pointer hover:border-brand-green/60 hover:shadow-md transition-colors active:scale-95 ${product.stock === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
                       onClick={() => product.stock > 0 && addToCart(product)}
                     >
                       <CardContent className="p-3 md:p-4 text-center flex flex-col h-full">
                         <div className="text-xs text-slate-400 mb-1">{product.barcode}</div>
                         <div className="font-semibold text-sm md:text-base leading-tight mb-2 flex-1">{product.name}</div>
-                        <div className="text-blue-600 font-bold mb-2">{formatRp(product.price)}</div>
+                        <div className="text-brand-orange font-bold mb-2">{formatRp(product.price)}</div>
                         <div className="text-xs font-medium text-slate-500 bg-slate-100 rounded-full py-1">
                           Stok: {product.stock}
                         </div>
@@ -699,7 +699,7 @@ export default function PosPage() {
               </div>
               <div className="flex justify-between items-end mb-4">
                 <span className="font-semibold text-lg">Total</span>
-                <span className="text-3xl font-bold text-slate-900">{formatRp(total)}</span>
+                <span className="text-3xl font-bold text-brand-green">{formatRp(total)}</span>
               </div>
 
               <div className="flex gap-2 w-full mb-2">
@@ -928,7 +928,7 @@ export default function PosPage() {
                   const expected = (shift?.openingCash ?? 0) + (shiftSummary?.totalCash ?? 0);
                   const diff = Number(actualCash) - expected;
                   return (
-                    <div className={`text-sm mt-1 flex items-center justify-between font-medium ${diff === 0 ? "text-green-600" : diff > 0 ? "text-blue-600" : "text-red-600"}`}>
+                    <div className={`text-sm mt-1 flex items-center justify-between font-medium ${diff === 0 ? "text-green-600" : diff > 0 ? "text-brand-green" : "text-red-600"}`}>
                       <span>Selisih:</span>
                       <span>{diff > 0 ? "+" : ""}{formatRp(diff)}</span>
                     </div>

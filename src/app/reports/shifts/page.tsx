@@ -164,7 +164,7 @@ export default function ShiftsReportPage() {
                 </div>
                 <div>
                   <div className="text-xs text-slate-400">Uang Akhir</div>
-                  <div className="font-bold text-blue-700">{formatCurrency(shift.closingCash || 0)}</div>
+                  <div className="font-bold text-brand-green">{formatCurrency(shift.closingCash || 0)}</div>
                 </div>
               </div>
             </div>
