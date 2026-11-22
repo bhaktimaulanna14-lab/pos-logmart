@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -34,6 +32,8 @@ type Product = {
   isActive: boolean;
 };
 
+const PAGE_SIZE = 50;
+
 type Category = {
   id: string;
   name: string;
@@ -58,8 +58,15 @@ export default function ProductsPage() {
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
 
-  // Selection
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  // Pagination & tata letak
+  const [page, setPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  // Selection — disimpan lintas halaman (id → data barang) untuk cetak label.
+  const [selectedMap, setSelectedMap] = useState<Map<string, Product>>(new Map());
+  const selectedProducts = { has: (id: string) => selectedMap.has(id), size: selectedMap.size };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -81,16 +88,20 @@ export default function ProductsPage() {
     }
   }, []);
 
-  const fetchProducts = useCallback(async (search: string, catId: string) => {
+  // Data diambil per halaman (PAGE_SIZE barang) supaya halaman tetap ringan walau ada ribuan barang.
+  const fetchProducts = useCallback(async (search: string, catId: string, pageNum = 1) => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE) });
       if (search) params.append("q", search);
       if (catId && catId !== "all") params.append("categoryId", catId);
-      
+
       const res = await fetch(`/api/products?${params.toString()}`);
       const json = await res.json();
-      if (json.success) setProducts(json.data);
+      if (json.success) {
+        setProducts(json.data);
+        setTotalProducts(json.total ?? json.data.length);
+      }
     } catch (e) {
       console.error("Failed to fetch products", e);
     } finally {
@@ -98,20 +109,48 @@ export default function ProductsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+  // Jumlah barang stok menipis dihitung di server (bukan dari daftar halaman ini saja).
+  const fetchLowStockCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/dashboard/low-stock?limit=1");
+      const json = await res.json();
+      if (json.success) setLowStockCount(json.total ?? 0);
+    } catch (e) {
+      console.error("Failed to fetch low stock count", e);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchProducts(searchTerm, categoryFilter);
-  }, [searchTerm, categoryFilter, fetchProducts]);
+    fetchCategories();
+    fetchLowStockCount();
+  }, [fetchCategories, fetchLowStockCount]);
+
+  useEffect(() => {
+    fetchProducts(searchTerm, categoryFilter, page);
+  }, [searchTerm, categoryFilter, page, fetchProducts]);
+
+  // Hanya render satu tata letak (tabel desktop ATAU kartu mobile), bukan keduanya.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  const refreshAfterChange = async () => {
+    await Promise.all([fetchProducts(searchTerm, categoryFilter, page), fetchLowStockCount()]);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
 
   const handleSearchChange = (val: string) => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     // Let user type fast, update UI state first, then fetch
     searchTimeout.current = setTimeout(() => {
       setSearchTerm(val);
-    }, 500);
+      setPage(1);
+    }, 400);
   };
 
   // --- Category Management ---
@@ -194,7 +233,7 @@ export default function ProductsPage() {
       if (json.success) {
         setIsProductDialogOpen(false);
         setEditingProduct(null);
-        await fetchProducts(searchTerm, categoryFilter);
+        await refreshAfterChange();
       } else {
         alert(json.message);
       }
@@ -212,7 +251,7 @@ export default function ProductsPage() {
       const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (json.success) {
-        await fetchProducts(searchTerm, categoryFilter);
+        await refreshAfterChange();
       } else {
         alert(json.message);
       }
@@ -225,8 +264,8 @@ export default function ProductsPage() {
   // --- Print Labels ---
 
   const handlePrintLabels = () => {
-    if (selectedProducts.size === 0) return;
-    const ids = Array.from(selectedProducts).join(",");
+    if (selectedMap.size === 0) return;
+    const ids = Array.from(selectedMap.keys()).join(",");
     fetch(`/api/products/labels?ids=${ids}`)
       .then(async res => {
         if (!res.ok) {
@@ -244,7 +283,7 @@ export default function ProductsPage() {
         a.click();
         a.remove();
         setIsPreviewDialogOpen(false);
-        setSelectedProducts(new Set());
+        setSelectedMap(new Map());
       })
       .catch(err => {
         alert("Error: " + err.message);
@@ -254,22 +293,42 @@ export default function ProductsPage() {
   // --- Selection Logic ---
 
   const toggleProductSelection = (id: string) => {
-    const newSelected = new Set(selectedProducts);
-    if (newSelected.has(id)) newSelected.delete(id);
-    else newSelected.add(id);
-    setSelectedProducts(newSelected);
+    const product = products.find((p) => p.id === id);
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      if (next.has(id)) next.delete(id);
+      else if (product) next.set(id, product);
+      return next;
+    });
   };
 
+  // "Pilih semua" berlaku untuk barang di halaman yang sedang tampil.
+  const allOnPageSelected = products.length > 0 && products.every((p) => selectedMap.has(p.id));
   const toggleAllSelection = () => {
     if (products.length === 0) return;
-    if (selectedProducts.size === products.length) {
-      setSelectedProducts(new Set());
-    } else {
-      setSelectedProducts(new Set(products.map(p => p.id)));
-    }
+    setSelectedMap((prev) => {
+      const next = new Map(prev);
+      if (allOnPageSelected) products.forEach((p) => next.delete(p.id));
+      else products.forEach((p) => next.set(p.id, p));
+      return next;
+    });
   };
 
-  const lowStockProducts = products.filter(p => p.stockQty <= p.minStock);
+  const pagination = totalProducts > 0 && (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-3 text-sm text-slate-600">
+      <div>
+        Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalProducts)} dari{" "}
+        {totalProducts.toLocaleString("id-ID")} barang
+      </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage(1)}>« Awal</Button>
+        <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage((p) => p - 1)}>‹ Sebelumnya</Button>
+        <span className="px-2 whitespace-nowrap">Hal. {page} / {totalPages}</span>
+        <Button variant="outline" size="sm" disabled={page >= totalPages || isLoading} onClick={() => setPage((p) => p + 1)}>Berikutnya ›</Button>
+        <Button variant="outline" size="sm" disabled={page >= totalPages || isLoading} onClick={() => setPage(totalPages)}>Akhir »</Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-6">
@@ -293,7 +352,7 @@ export default function ProductsPage() {
                     <DialogDescription>Pastikan kertas ukuran A4 / label sudah sesuai sebelum mencetak.</DialogDescription>
                   </DialogHeader>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto p-2 border rounded bg-slate-50">
-                    {products.filter(p => selectedProducts.has(p.id)).map(product => (
+                    {Array.from(selectedMap.values()).map(product => (
                       <div key={product.id} className="bg-white border p-3 flex flex-col items-center text-center justify-center rounded shadow-sm">
                         <div className="font-bold text-sm leading-tight mb-1">{product.name}</div>
                         <div className="text-xs text-muted-foreground mb-2">{product.barcode}</div>
@@ -455,12 +514,12 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {lowStockProducts.length > 0 && (
+      {lowStockCount > 0 && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Peringatan Stok!</AlertTitle>
           <AlertDescription>
-            Terdapat {lowStockProducts.length} barang dengan stok di bawah minimum. Silakan lakukan pemesanan ulang ke supplier.
+            Terdapat {lowStockCount} barang dengan stok di bawah minimum. Silakan lakukan pemesanan ulang ke supplier.
           </AlertDescription>
         </Alert>
       )}
@@ -476,7 +535,7 @@ export default function ProductsPage() {
           />
         </div>
         <div className="w-[200px]">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v ?? "all"); setPage(1); }}>
             <SelectTrigger>
               <SelectValue placeholder="Semua Kategori" />
             </SelectTrigger>
@@ -491,14 +550,15 @@ export default function ProductsPage() {
         {isLoading && <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}
       </div>
 
-      {/* Products Table Desktop */}
-      <div className="hidden md:block border rounded-md bg-white">
+      {/* Products Table Desktop (hanya dirender di layar lebar) */}
+      {isDesktop && (
+      <div className="border rounded-md bg-white">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[50px]">
                 <Checkbox 
-                  checked={products.length > 0 && selectedProducts.size === products.length}
+                  checked={allOnPageSelected}
                   onCheckedChange={toggleAllSelection}
                   aria-label="Pilih semua"
                 />
@@ -582,18 +642,20 @@ export default function ProductsPage() {
           </TableBody>
         </Table>
       </div>
+      )}
 
-      {/* Products Cards Mobile */}
-      <div className="md:hidden flex flex-col gap-3 pb-8">
+      {/* Products Cards Mobile (hanya dirender di layar kecil) */}
+      {!isDesktop && (
+      <div className="flex flex-col gap-3 pb-2">
         {/* Select All Checkbox Mobile */}
         {products.length > 0 && (
           <div className="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm">
             <Checkbox 
               id="select-all-mobile"
-              checked={products.length > 0 && selectedProducts.size === products.length}
+              checked={allOnPageSelected}
               onCheckedChange={toggleAllSelection}
             />
-            <Label htmlFor="select-all-mobile" className="font-medium">Pilih Semua ({selectedProducts.size}/{products.length})</Label>
+            <Label htmlFor="select-all-mobile" className="font-medium">Pilih semua di halaman ini ({selectedProducts.size} dipilih)</Label>
           </div>
         )}
 
@@ -679,6 +741,9 @@ export default function ProductsPage() {
           ))
         )}
       </div>
+      )}
+
+      {pagination}
     </div>
   );
 }

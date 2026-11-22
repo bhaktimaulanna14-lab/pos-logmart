@@ -1,24 +1,26 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions } from "@/db/schema";
 import { sql } from "drizzle-orm";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET() {
   try {
+    const auth = await requireSession();
+    if (auth.error) return auth.error;
+
     // Get sales per month for the last 6 months
     const results = await db
       .select({
-        month: sql<string>`strftime('%Y-%m', transaction_time)`,
+        month: sql<string>`strftime('%Y-%m', transaction_time, '+7 hours')`,
         sales: sql<number>`SUM(total_amount)`,
       })
       .from(transactions)
       .where(
-        sql`transaction_time >= date('now', '-6 months')`
+        sql`datetime(transaction_time, '+7 hours') >= date('now', '+7 hours', 'start of month', '-5 months')`
       )
-      .groupBy(sql`strftime('%Y-%m', transaction_time)`)
-      .orderBy(sql`strftime('%Y-%m', transaction_time) ASC`);
+      .groupBy(sql`strftime('%Y-%m', transaction_time, '+7 hours')`)
+      .orderBy(sql`strftime('%Y-%m', transaction_time, '+7 hours') ASC`);
 
     // Format month label to Indonesian short month names
     const monthNames: Record<string, string> = {

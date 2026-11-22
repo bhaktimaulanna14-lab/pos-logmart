@@ -107,11 +107,51 @@ sudo systemctl restart caddy
 ---
 
 ### Cheatsheet (Catatan Singkat Jika Ingin Update Kode Nanti)
-Jika di masa depan Anda memperbaiki kode dan mem-*push*-nya ke GitHub, cara mengupdate VPS sangat mudah:
+Jika di masa depan Anda memperbaiki kode dan mem-*push*-nya ke GitHub, cara mengupdate VPS:
 ```bash
-cd pos-logmart
+cd /var/www/pos-logmart
+# 1. Backup database dulu (lihat catatan WAL di bawah)
+sqlite3 sqlite.db ".backup $HOME/sqlite-backup-$(date +%F-%H%M).db"
+# 2. Ambil kode & pasang dependensi
 git pull
 npm install
+# 3. Terapkan perubahan skema (tabel/kolom/index baru) — hanya menambah, tidak menghapus data
+node scripts/migrate-2026-11.js sqlite.db
+# 4. Build & restart
 npm run build
 pm2 restart logmart-pos
 ```
+
+> **⚠️ JANGAN jalankan `npx drizzle-kit push` pada database yang sudah berisi data.** Pada database lama ia akan
+> meminta konfirmasi lalu menjalankan `delete from transaction_items` (seluruh rincian transaksi hilang).
+> `drizzle-kit push` hanya untuk instalasi baru dengan database kosong (langkah 4 di atas). Untuk update pakai skrip migrasi.
+
+> **Catatan WAL:** sejak versi perbaikan Nov 2026 database memakai mode WAL, sehingga terdiri dari
+> `sqlite.db` + `sqlite.db-wal` + `sqlite.db-shm`. Jangan backup dengan `cp sqlite.db` saja — gunakan
+> `sqlite3 sqlite.db ".backup file-backup.db"` (pasang dengan `sudo apt install sqlite3` bila belum ada).
+
+---
+
+## Update ke Versi Perbaikan (Nov 2026) — lakukan SEKALI
+
+Versi ini memperbaiki banyak bug (lihat `ISSUES.md`) dan menambah fitur Promo. Urutan update:
+
+1. **Pilih waktu toko tutup / tidak ada transaksi**, dan pastikan semua kasir sudah **tutup shift**.
+2. Ikuti langkah *Cheatsheet* di atas (backup → `git pull` → `npm install` → `node scripts/migrate-2026-11.js sqlite.db` → build → restart).
+   Skrip migrasi menambahkan tabel `promotions`, kolom diskon di `transaction_items`, dan index baru. Pastikan baris
+   "Cek data" yang dicetak menunjukkan jumlah transaksi & rincian barang yang sama seperti sebelumnya.
+3. **Perbaiki data lama** (transaksi lama tercatat atas nama Budi):
+   ```bash
+   cd /var/www/pos-logmart
+   node scripts/fix-production-data.js sqlite.db           # pratinjau dulu, tidak mengubah apa pun
+   node scripts/fix-production-data.js sqlite.db --apply   # terapkan
+   ```
+   Skrip juga menampilkan daftar barang dengan **stok minus** — koreksi lewat stok opname di menu Manajemen Barang.
+4. **Keamanan:**
+   - Pastikan `JWT_SECRET` di `ecosystem.config.js` di VPS bukan lagi `GANTI_DENGAN_SECRET_YANG_AMAN_SAAT_DEPLOY`.
+     Buat yang acak: `openssl rand -base64 48`, lalu `pm2 restart logmart-pos --update-env`.
+     (Semua user perlu login ulang setelah secret diganti.)
+   - Login sebagai admin, buka **Ganti Password** (di sidebar) dan ganti password bawaan `admin123`.
+     Reset password kasir (`kasir123`) lewat menu **Pengguna (Staf) → Edit**.
+5. Cek cepat setelah deploy: login kasir → buka shift → transaksi kecil → **Cetak Struk** di printer thermal 58 mm →
+   lihat Laporan Penjualan & Riwayat Transaksi.

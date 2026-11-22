@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -17,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { ReceiptModal } from "@/components/ReceiptModal";
 import type { ReceiptData } from "@/components/ReceiptModal";
+import { useSession } from "@/hooks/useSession";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +61,10 @@ function formatRp(n: number) {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function PosPage() {
+  // Hanya kasir yang boleh membuka shift & checkout (manajer hanya melihat).
+  const { user } = useSession();
+  const isCashier = user?.role === "kasir";
+
   // Shift state
   const [shift, setShift] = useState<Shift | null>(null);
   const [isLoadingShift, setIsLoadingShift] = useState(true);
@@ -356,7 +359,44 @@ export default function PosPage() {
   const clearCart = () => setCart([]);
 
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const total = subtotal;
+
+  // Promo dihitung di server (sama persis dengan saat checkout) setiap keranjang berubah.
+  const [pricing, setPricing] = useState<{
+    key: string;
+    discountTotal: number;
+    total: number;
+    lines: Record<string, { discount: number; promotionName: string | null; promotionNote: string | null }>;
+  } | null>(null);
+  const cartKey = cart.map((i) => `${i.id}:${i.qty}`).join(",");
+  useEffect(() => {
+    if (!cartKey) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/checkout/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: cartKey.split(",").map((s) => ({ id: s.split(":")[0], qty: Number(s.split(":")[1]) })) }),
+        });
+        const json = await res.json();
+        if (!cancelled && json.success) {
+          const lines: Record<string, { discount: number; promotionName: string | null; promotionNote: string | null }> = {};
+          for (const l of json.data.lines) lines[l.id] = l;
+          setPricing({ key: cartKey, discountTotal: json.data.discountTotal, total: json.data.total, lines });
+        }
+      } catch (e) {
+        console.error("checkout preview:", e);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [cartKey]);
+  const pricingFresh = pricing && pricing.key === cartKey ? pricing : null;
+  const discountTotal = pricingFresh?.discountTotal ?? 0;
+  const total = cart.length === 0 ? 0 : pricingFresh?.total ?? subtotal;
+  const isPricing = cart.length > 0 && !pricingFresh;
 
   // ── Checkout ───────────────────────────────────────────────────────────────
 
@@ -473,13 +513,17 @@ export default function PosPage() {
             <div>
               <h2 className="text-2xl font-bold text-slate-800">Sistem Kasir Terkunci</h2>
               <p className="text-slate-500 mt-2">
-                Buka shift terlebih dahulu untuk mulai melayani transaksi.
+                {isCashier
+                  ? "Buka shift terlebih dahulu untuk mulai melayani transaksi."
+                  : "Menu kasir hanya untuk akun kasir. Masuk dengan akun kasir untuk membuka shift dan melayani transaksi."}
               </p>
             </div>
-            <Button size="lg" className="w-full gap-2 text-lg h-12" onClick={() => setShowOpenShiftDialog(true)}>
-              <Clock className="w-5 h-5" />
-              Buka Shift Sekarang
-            </Button>
+            {isCashier && (
+              <Button size="lg" className="w-full gap-2 text-lg h-12" onClick={() => setShowOpenShiftDialog(true)}>
+                <Clock className="w-5 h-5" />
+                Buka Shift Sekarang
+              </Button>
+            )}
           </div>
 
           {/* Open shift dialog */}
@@ -663,9 +707,21 @@ export default function PosPage() {
                       <div className="flex justify-between items-start">
                         <div className="font-medium text-sm leading-tight pr-2">{item.name}</div>
                         <div className="font-semibold text-right shrink-0">
-                          {formatRp(item.price * item.qty)}
+                          {pricingFresh?.lines[item.id]?.discount ? (
+                            <>
+                              <div className="text-xs text-slate-400 line-through font-normal">{formatRp(item.price * item.qty)}</div>
+                              <div className="text-brand-green">{formatRp(item.price * item.qty - pricingFresh.lines[item.id].discount)}</div>
+                            </>
+                          ) : (
+                            formatRp(item.price * item.qty)
+                          )}
                         </div>
                       </div>
+                      {pricingFresh?.lines[item.id]?.promotionName && (
+                        <div className="text-xs rounded bg-brand-orange-light/10 text-orange-800 px-2 py-1">
+                          🏷 {pricingFresh.lines[item.id].promotionName} · {pricingFresh.lines[item.id].promotionNote}
+                        </div>
+                      )}
                       <div className="flex justify-between items-center mt-1">
                         <div className="text-xs text-slate-500">{formatRp(item.price)}</div>
                         <div className="flex items-center gap-2 bg-slate-100 rounded-md p-0.5">
@@ -694,8 +750,10 @@ export default function PosPage() {
                 <span>{formatRp(subtotal)}</span>
               </div>
               <div className="flex justify-between items-center mb-4 text-slate-600">
-                <span>Diskon</span>
-                <span>Rp 0</span>
+                <span>Diskon promo</span>
+                <span className={discountTotal > 0 ? "text-brand-green font-medium" : ""}>
+                  {discountTotal > 0 ? `- ${formatRp(discountTotal)}` : "Rp 0"}
+                </span>
               </div>
               <div className="flex justify-between items-end mb-4">
                 <span className="font-semibold text-lg">Total</span>
@@ -716,7 +774,7 @@ export default function PosPage() {
               <Button
                 size="lg"
                 className="w-full h-14 text-lg font-bold gap-2"
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || isPricing}
                 onClick={() => setShowPaymentDialog(true)}
               >
                 <CreditCard className="w-6 h-6" />

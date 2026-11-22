@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const categories = sqliteTable("categories", {
@@ -22,7 +22,11 @@ export const products = sqliteTable("products", {
   createdAt: text("created_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
-});
+}, (t) => [
+  index("products_name_idx").on(t.name),
+  index("products_category_idx").on(t.categoryId),
+  index("products_active_stock_idx").on(t.isActive, t.stockQty),
+]);
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -46,7 +50,10 @@ export const shifts = sqliteTable("shifts", {
   openingCash: integer("opening_cash").notNull(),
   closingCash: integer("closing_cash"),
   status: text("status").notNull(), // buka, tutup
-});
+}, (t) => [
+  index("shifts_user_status_idx").on(t.userId, t.status),
+  index("shifts_open_at_idx").on(t.openAt),
+]);
 
 export const transactions = sqliteTable("transactions", {
   id: text("id").primaryKey(),
@@ -64,7 +71,11 @@ export const transactions = sqliteTable("transactions", {
   transactionTime: text("transaction_time")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
-});
+}, (t) => [
+  index("transactions_time_idx").on(t.transactionTime),
+  index("transactions_shift_idx").on(t.shiftId),
+  index("transactions_user_idx").on(t.userId),
+]);
 
 export const transactionItems = sqliteTable("transaction_items", {
   id: text("id").primaryKey(),
@@ -76,8 +87,16 @@ export const transactionItems = sqliteTable("transaction_items", {
     .references(() => products.id),
   quantity: integer("quantity").notNull(),
   price: integer("price").notNull(),
+  /** Potongan promo untuk baris ini (rupiah). subtotal = price * quantity - discount. */
+  discount: integer("discount").notNull().default(0),
+  /** Promo yang dipakai (bila ada). Disimpan sebagai teks agar riwayat tetap utuh walau promo dihapus. */
+  promotionId: text("promotion_id"),
+  promotionName: text("promotion_name"),
   subtotal: integer("subtotal").notNull(),
-});
+}, (t) => [
+  index("transaction_items_trx_idx").on(t.transactionId),
+  index("transaction_items_product_idx").on(t.productId),
+]);
 
 export const stockMovements = sqliteTable("stock_movements", {
   id: text("id").primaryKey(),
@@ -90,7 +109,10 @@ export const stockMovements = sqliteTable("stock_movements", {
   createdAt: text("created_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
-});
+}, (t) => [
+  index("stock_movements_product_time_idx").on(t.productId, t.createdAt),
+  index("stock_movements_type_time_idx").on(t.type, t.createdAt),
+]);
 
 export const purchaseOrders = sqliteTable("purchase_orders", {
   id: text("id").primaryKey(),
@@ -178,3 +200,33 @@ export const purchaseReturns = sqliteTable("purchase_returns", {
     .default(sql`CURRENT_TIMESTAMP`),
   processedAt: text("processed_at"),
 });
+
+/**
+ * Promo yang berlaku otomatis di kasir selama periode tanggalnya (WIB, inklusif).
+ * type:
+ *   persen      → value = persen diskon (1–100)
+ *   nominal     → value = potongan rupiah per item
+ *   grosir      → value = harga per item bila qty >= min_qty
+ *   beli_gratis → beli min_qty item, gratis value item (barang yang sama)
+ */
+export const promotions = sqliteTable("promotions", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // persen, nominal, grosir, beli_gratis
+  targetType: text("target_type").notNull(), // produk, kategori
+  productId: text("product_id").references(() => products.id),
+  categoryId: text("category_id").references(() => categories.id),
+  value: integer("value").notNull(),
+  minQty: integer("min_qty").notNull().default(1),
+  startDate: text("start_date").notNull(), // YYYY-MM-DD (WIB)
+  endDate: text("end_date").notNull(), // YYYY-MM-DD (WIB), inklusif
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdBy: text("created_by").references(() => users.id),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+}, (t) => [
+  index("promotions_period_idx").on(t.isActive, t.startDate, t.endDate),
+  index("promotions_product_idx").on(t.productId),
+  index("promotions_category_idx").on(t.categoryId),
+]);

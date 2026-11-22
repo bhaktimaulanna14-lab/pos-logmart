@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseExcelBuffer } from "@/lib/excel-helper";
-import { validateImportRow, ValidationError } from "@/lib/import-validator";
+import { validateImportRows, ValidationError } from "@/lib/import-validator";
 import { getSession } from "@/lib/session";
 import { db } from "@/db";
 
@@ -31,15 +31,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "File is empty or has no valid rows" }, { status: 400 });
     }
 
-    const previewErrors: ValidationError[] = [];
-
-    rows.forEach((row, index) => {
-      const rowNumber = index + 2; 
-      const rowErrors = validateImportRow(entity, rowNumber, row);
-      if (rowErrors.length > 0) {
-        previewErrors.push(...rowErrors);
-      }
-    });
+    // Aturan sama dengan pratinjau: file ditolak seluruhnya bila ada baris yang tidak valid,
+    // sehingga tidak ada data setengah jadi (mis. PO tanpa barang).
+    const previewErrors: ValidationError[] = validateImportRows(entity, rows).all;
 
     if (previewErrors.length > 0) {
       return NextResponse.json({

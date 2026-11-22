@@ -1,89 +1,42 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, products } from "@/db/schema";
-import { eq, gte, lte, and } from "drizzle-orm";
+import { and, eq, gte, lt, sql, desc } from "drizzle-orm";
+import { requireSession, errorResponse } from "@/lib/api-auth";
+import { resolvePeriod } from "@/lib/report-period";
 
+// Barang terlaris pada periode terpilih — diagregasi langsung di SQL.
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const period = searchParams.get("period") || "7hari";
-    
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (period === "bulanIni") {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else {
-      startDate.setDate(startDate.getDate() - 7);
-    }
-    
-    const startIso = startDate.toISOString();
-    const endIso = now.toISOString();
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
 
-    // Get transactions within period
-    const trxs = await db
-      .select({ id: transactions.id })
-      .from(transactions)
-      .where(and(
-        gte(transactions.createdAt, startIso),
-        lte(transactions.createdAt, endIso)
-      ));
+    const params = request.nextUrl.searchParams;
+    const period = resolvePeriod(params);
+    const limit = Math.min(Math.max(Number(params.get("limit")) || 5, 1), 50);
 
-    if (trxs.length === 0) {
-      return NextResponse.json({ success: true, data: [] });
-    }
-
-    const trxIds = trxs.map(t => t.id);
-
-    // Join transaction items with products to get top selling
-    const items = await db
+    const qty = sql<number>`sum(${transactionItems.quantity})`;
+    const rows = await db
       .select({
-        productId: transactionItems.productId,
-        qty: transactionItems.quantity,
-        price: transactionItems.priceAtTransaction,
+        productId: products.id,
         name: products.name,
+        barcode: products.barcode,
+        qty,
+        revenue: sql<number>`sum(${transactionItems.subtotal})`,
       })
       .from(transactionItems)
-      .innerJoin(products, eq(transactionItems.productId, products.id));
-      
-    // Filter items belonging to the fetched transactions (simulate IN clause)
-    // NOTE: For a real app, do an actual SQL IN query, but this works for prototype SQLite
-    // wait, we can't easily filter if we didn't fetch trxId, let's fetch trxId
-    const itemsWithTrx = await db
-      .select({
-        trxId: transactionItems.transactionId,
-        productId: transactionItems.productId,
-        qty: transactionItems.quantity,
-        price: transactionItems.priceAtTransaction,
-        name: products.name,
-      })
-      .from(transactionItems)
-      .innerJoin(products, eq(transactionItems.productId, products.id));
+      .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
+      .innerJoin(products, eq(transactionItems.productId, products.id))
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)))
+      .groupBy(products.id)
+      .orderBy(desc(qty))
+      .limit(limit);
 
-    const validItems = itemsWithTrx.filter(item => trxIds.includes(item.trxId));
-
-    // Aggregate
-    const aggregated = validItems.reduce((acc: any, item) => {
-      if (!acc[item.productId]) {
-        acc[item.productId] = { name: item.name, qty: 0, revenue: 0 };
-      }
-      acc[item.productId].qty += item.qty;
-      acc[item.productId].revenue += (item.qty * item.price);
-      return acc;
-    }, {});
-
-    const topProducts = Object.values(aggregated)
-      .sort((a: any, b: any) => b.qty - a.qty)
-      .slice(0, 5); // top 5
-
-    return NextResponse.json({ success: true, data: topProducts });
+    return NextResponse.json({
+      success: true,
+      data: rows.map((r) => ({ ...r, qty: Number(r.qty), revenue: Number(r.revenue) })),
+    });
   } catch (error) {
-    console.error("GET top products API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal mengambil data produk terlaris" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal mengambil data produk terlaris", "GET top products API error:");
   }
 }

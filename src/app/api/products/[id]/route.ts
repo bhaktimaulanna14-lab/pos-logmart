@@ -1,69 +1,99 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
-import { products } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { products, categories, stockMovements } from "@/db/schema";
+import { and, eq, ne } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
-// PUT update product
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type Params = { params: Promise<{ id: string }> };
+
+// PUT update product. Perubahan stok dicatat sebagai pergerakan stok "penyesuaian".
+export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const id = (await params).id;
     const body = await request.json();
-    const { barcode, name, categoryId, price, cost, stockQty, minStock, isActive } = body;
 
-    const updateData: any = {};
-    if (barcode !== undefined) updateData.barcode = barcode;
-    if (name !== undefined) updateData.name = name;
-    if (categoryId !== undefined) updateData.categoryId = categoryId;
-    if (price !== undefined) updateData.price = Number(price);
-    if (cost !== undefined) updateData.cost = Number(cost);
-    if (stockQty !== undefined) updateData.stockQty = Number(stockQty);
-    if (minStock !== undefined) updateData.minStock = Number(minStock);
-    if (isActive !== undefined) updateData.isActive = isActive;
+    const updateData: Partial<typeof products.$inferInsert> = {};
+
+    if (body.barcode !== undefined) {
+      const barcode = String(body.barcode).trim();
+      if (!barcode) throw new ApiError(400, "Barcode tidak boleh kosong");
+      const duplicate = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.barcode, barcode), ne(products.id, id)))
+        .get();
+      if (duplicate) throw new ApiError(409, `Barcode "${barcode}" sudah dipakai barang lain`);
+      updateData.barcode = barcode;
+    }
+    if (body.name !== undefined) {
+      const name = String(body.name).trim();
+      if (!name) throw new ApiError(400, "Nama barang tidak boleh kosong");
+      updateData.name = name;
+    }
+    if (body.categoryId !== undefined) {
+      const category = await db.select({ id: categories.id }).from(categories).where(eq(categories.id, body.categoryId)).get();
+      if (!category) throw new ApiError(400, "Kategori tidak ditemukan");
+      updateData.categoryId = body.categoryId;
+    }
+    for (const field of ["price", "cost", "minStock"] as const) {
+      if (body[field] !== undefined) {
+        const value = toInt(body[field], 0);
+        if (value === null) throw new ApiError(400, "Harga, modal, dan stok minimum harus angka 0 atau lebih");
+        updateData[field] = value;
+      }
+    }
+    let newStock: number | null = null;
+    if (body.stockQty !== undefined) {
+      newStock = toInt(body.stockQty, 0);
+      if (newStock === null) throw new ApiError(400, "Stok harus angka 0 atau lebih");
+      updateData.stockQty = newStock;
+    }
+    if (body.isActive !== undefined) updateData.isActive = Boolean(body.isActive);
 
     if (Object.keys(updateData).length === 0) {
-       return NextResponse.json({ success: false, message: "Tidak ada data untuk diupdate" }, { status: 400 });
+      throw new ApiError(400, "Tidak ada data untuk diupdate");
     }
 
-    await db
-      .update(products)
-      .set(updateData)
-      .where(eq(products.id, id));
+    db.transaction((tx) => {
+      const current = tx.select({ stockQty: products.stockQty }).from(products).where(eq(products.id, id)).get();
+      if (!current) throw new ApiError(404, "Produk tidak ditemukan");
+
+      tx.update(products).set(updateData).where(eq(products.id, id)).run();
+
+      if (newStock !== null && newStock !== current.stockQty) {
+        tx.insert(stockMovements).values({
+          id: randomUUID(),
+          productId: id,
+          type: "penyesuaian",
+          qtyChange: newStock - current.stockQty,
+          referenceId: `edit-manual:${session.id}`,
+        }).run();
+      }
+    });
 
     return NextResponse.json({ success: true, message: "Produk berhasil diperbarui" });
   } catch (error) {
-    console.error("PUT product API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal memperbarui produk" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal memperbarui produk", "PUT product API error:");
   }
 }
 
-// DELETE product (or soft delete)
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// DELETE product = nonaktifkan (soft delete) agar riwayat transaksi tetap utuh.
+export async function DELETE(_request: NextRequest, { params }: Params) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const id = (await params).id;
-    
-    // We do soft delete for products so we don't break transaction history
-    await db
-      .update(products)
-      .set({ isActive: false })
-      .where(eq(products.id, id));
+    const result = db.update(products).set({ isActive: false }).where(eq(products.id, id)).run();
+    if (result.changes === 0) throw new ApiError(404, "Produk tidak ditemukan");
 
     return NextResponse.json({ success: true, message: "Produk berhasil dinonaktifkan" });
   } catch (error) {
-    console.error("DELETE product API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal menonaktifkan produk" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal menonaktifkan produk", "DELETE product API error:");
   }
 }

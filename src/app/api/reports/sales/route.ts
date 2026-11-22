@@ -1,72 +1,82 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { transactions } from "@/db/schema";
-import { gte, lte, and } from "drizzle-orm";
+import { and, gte, lt, sql } from "drizzle-orm";
+import { requireSession, errorResponse } from "@/lib/api-auth";
+import { resolvePeriod, previousPeriod, toStoreDate } from "@/lib/report-period";
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+// Ringkasan penjualan + data grafik untuk periode terpilih (WIB).
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const period = searchParams.get("period") || "7hari"; // 7hari, bulanIni
-    
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (period === "bulanIni") {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else {
-      // 7hari
-      startDate.setDate(startDate.getDate() - 7);
-    }
-    
-    const startIso = startDate.toISOString();
-    const endIso = now.toISOString();
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
+    const period = resolvePeriod(request.nextUrl.searchParams);
 
     const trxs = await db
+      .select({ totalAmount: transactions.totalAmount, transactionTime: transactions.transactionTime })
+      .from(transactions)
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)));
+
+    const prev = previousPeriod(period);
+    const prevRow = await db
       .select({
-        id: transactions.id,
-        totalAmount: transactions.totalAmount,
-        createdAt: transactions.createdAt,
+        revenue: sql<number>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        count: sql<number>`count(*)`,
       })
       .from(transactions)
-      .where(and(
-        gte(transactions.createdAt, startIso),
-        lte(transactions.createdAt, endIso)
-      ));
+      .where(and(gte(transactions.transactionTime, prev.startIso), lt(transactions.transactionTime, prev.endIso)))
+      .get();
 
-    // Aggregate by day
-    const aggregated = trxs.reduce((acc: any, trx) => {
-      const date = trx.createdAt.split("T")[0];
-      if (!acc[date]) {
-        acc[date] = { date, totalSales: 0, count: 0 };
+    // Kelompokkan per hari (atau per bulan untuk periode panjang) dalam WIB.
+    const buckets = new Map<string, { key: string; name: string; sales: number; count: number }>();
+    if (period.groupByMonth) {
+      for (const day of period.days) {
+        const key = day.slice(0, 7);
+        if (!buckets.has(key)) buckets.set(key, { key, name: `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(2, 4)}`, sales: 0, count: 0 });
       }
-      acc[date].totalSales += trx.totalAmount;
-      acc[date].count += 1;
-      return acc;
-    }, {});
+    } else {
+      for (const day of period.days) {
+        const d = new Date(day + "T00:00:00Z");
+        const name = period.days.length <= 7 ? `${DAYS[d.getUTCDay()]} ${Number(day.slice(8))}` : `${Number(day.slice(8))}/${Number(day.slice(5, 7))}`;
+        buckets.set(day, { key: day, name, sales: 0, count: 0 });
+      }
+    }
 
-    const chartData = Object.values(aggregated).sort((a: any, b: any) => a.date.localeCompare(b.date));
-    
-    const totalRevenue = trxs.reduce((sum, trx) => sum + trx.totalAmount, 0);
+    let totalRevenue = 0;
+    for (const t of trxs) {
+      totalRevenue += t.totalAmount;
+      const day = toStoreDate(t.transactionTime);
+      const bucket = buckets.get(period.groupByMonth ? day.slice(0, 7) : day);
+      if (bucket) {
+        bucket.sales += t.totalAmount;
+        bucket.count += 1;
+      }
+    }
+
     const totalTransactions = trxs.length;
+    const prevRevenue = Number(prevRow?.revenue ?? 0);
+    const prevCount = Number(prevRow?.count ?? 0);
+    const pctChange = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 1000) / 10 : null);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: {
+        period: { key: period.key, label: period.label, start: period.startIso, end: period.endIso },
         summary: {
           totalRevenue,
           totalTransactions,
-          avgTransaction: totalTransactions > 0 ? Math.floor(totalRevenue / totalTransactions) : 0,
+          avgTransaction: totalTransactions > 0 ? Math.round(totalRevenue / totalTransactions) : 0,
+          revenueChangePct: pctChange(totalRevenue, prevRevenue),
+          transactionsChangePct: pctChange(totalTransactions, prevCount),
         },
-        chartData
-      }
+        chartData: [...buckets.values()],
+      },
     });
   } catch (error) {
-    console.error("GET sales report API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal mengambil data laporan penjualan" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal mengambil data laporan penjualan", "GET sales report API error:");
   }
 }

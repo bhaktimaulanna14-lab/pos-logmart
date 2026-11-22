@@ -1,16 +1,16 @@
-/* eslint-disable */
-// @ts-nocheck
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { useState, useEffect } from "react";
+import { printReceipt } from "@/lib/print-receipt";
 
 export type ReceiptData = {
   id: string;
   time: string;
   cashier: string;
-  items: { id?: string; name: string; qty: number; price: number }[];
+  items: { id?: string; name: string; qty: number; price: number; discount?: number; promotionName?: string | null }[];
   total: number;
+  discount?: number;
   paymentMethod: string;
   cashReceived: number;
   change: number;
@@ -52,8 +52,9 @@ export function ReceiptModal({ isOpen, onClose, transactionId }: ReceiptModalPro
     }
   }, [isOpen, transactionId]);
 
-  const printReceipt = () => {
-    window.print();
+  // Cetak lewat iframe khusus struk (58 mm); lihat src/lib/print-receipt.ts.
+  const handlePrint = () => {
+    if (transaction) printReceipt(transaction);
   };
 
   return (
@@ -87,7 +88,7 @@ export function ReceiptModal({ isOpen, onClose, transactionId }: ReceiptModalPro
               <div className="border-b border-dashed border-slate-300 pb-2 mb-2">
                 <div className="flex justify-between">
                   <span>Tgl: {new Date(transaction.time).toLocaleString("id-ID")}</span>
-                  <span>Kasir: {transaction.cashier || "Budi"}</span>
+                  <span>Kasir: {transaction.cashier || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>No : {transaction.id}</span>
@@ -103,12 +104,24 @@ export function ReceiptModal({ isOpen, onClose, transactionId }: ReceiptModalPro
                       <span>{item.qty} x {item.price.toLocaleString("id-ID")}</span>
                       <span>{(item.qty * item.price).toLocaleString("id-ID")}</span>
                     </div>
+                    {!!item.discount && (
+                      <div className="flex justify-between text-slate-600">
+                        <span>&nbsp;&nbsp;{item.promotionName || "Promo"}</span>
+                        <span>-{item.discount.toLocaleString("id-ID")}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
               {/* Totals */}
               <div className="border-b border-dashed border-slate-300 pb-2 mb-2">
+                {!!transaction.discount && (
+                  <div className="flex justify-between">
+                    <span>Hemat promo</span>
+                    <span>-Rp {transaction.discount.toLocaleString("id-ID")}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-sm">
                   <span>Total</span>
                   <span>Rp {transaction.total?.toLocaleString("id-ID")}</span>
@@ -134,7 +147,7 @@ export function ReceiptModal({ isOpen, onClose, transactionId }: ReceiptModalPro
               <Button variant="outline" onClick={onClose}>
                 Tutup
               </Button>
-              <Button onClick={printReceipt} className="gap-2 bg-brand-green hover:bg-brand-green-dark text-white" disabled={isLoading || !transaction || !!error}>
+              <Button onClick={handlePrint}className="gap-2 bg-brand-green hover:bg-brand-green-dark text-white" disabled={isLoading || !transaction || !!error}>
                 <Printer className="w-4 h-4" />
                 Cetak Struk
               </Button>

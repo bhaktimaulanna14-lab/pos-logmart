@@ -1,12 +1,14 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { products } from "@/db/schema";
-import { like, or, eq } from "drizzle-orm";
+import { like, or, eq, and } from "drizzle-orm";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession();
+    if (auth.error) return auth.error;
+
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get("q");
 
@@ -24,9 +26,12 @@ export async function GET(request: NextRequest) {
       })
       .from(products)
       .where(
-        or(
-          eq(products.barcode, query),
-          like(products.name, `%${query}%`)
+        and(
+          eq(products.isActive, true),
+          or(
+            eq(products.barcode, query),
+            like(products.name, `%${query}%`)
+          )
         )
       )
       .limit(10);

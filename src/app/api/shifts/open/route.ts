@@ -1,18 +1,16 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { shifts } from "@/db/schema";
 import { randomUUID } from "crypto";
 import { eq, and } from "drizzle-orm";
-import { getSession } from "@/lib/session";
+import { requireSession } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
-    }
+    // Cek sesi + status aktif + peran terbaru dari database.
+    const auth = await requireSession();
+    if (auth.error) return auth.error;
+    const { session } = auth;
     if (session.role !== "kasir") {
       return NextResponse.json({ success: false, message: "Hanya role kasir yang dapat membuka shift (absen masuk)" }, { status: 403 });
     }

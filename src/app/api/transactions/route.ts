@@ -1,11 +1,12 @@
-/* eslint-disable */
-// @ts-nocheck
 import { getSession } from "@/lib/session";
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, products, stockMovements, shifts, users } from "@/db/schema";
-import { eq, sql, like, and, or, desc } from "drizzle-orm";
+import { eq, sql, like, and, desc, inArray, gte, lt } from "drizzle-orm";
+import { resolvePeriod } from "@/lib/report-period";
+import { priceCart } from "@/lib/promotions";
 import { randomUUID } from "crypto";
+import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +23,15 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q"); // trx number
     const cashierId = searchParams.get("cashierId");
     const shiftId = searchParams.get("shiftId");
-    
+    // Filter tanggal (WIB): ?date=YYYY-MM-DD, atau ?startDate=&endDate=, atau ?period=
+    const date = searchParams.get("date");
+    const hasDateFilter = !!(date || searchParams.get("startDate") || searchParams.get("period"));
+    const periodParams = new URLSearchParams(searchParams);
+    if (date) {
+      periodParams.set("startDate", date);
+      periodParams.set("endDate", date);
+    }
+
     const conditions = [];
 
     if (q) {
@@ -37,8 +46,31 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(transactions.shiftId, shiftId));
     }
 
+    let dateRange = null;
+    if (hasDateFilter) {
+      const period = resolvePeriod(periodParams);
+      dateRange = and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso));
+      conditions.push(dateRange);
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Pagination opsional: ?page=1&pageSize=50. Tanpa `page` = semua hasil filter (dipakai ringkasan shift di POS).
+    const pageParam = searchParams.get("page");
+    const page = Math.max(1, Number(pageParam) || 1);
+    const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize")) || 50, 1), 200);
+
+    const totalRow = await db
+      .select({
+        n: sql<number>`count(*)`,
+        amount: sql<number>`coalesce(sum(${transactions.totalAmount}), 0)`,
+      })
+      .from(transactions)
+      .where(where)
+      .get();
+
     // Join to get cashier name
-    const results = await db
+    const query = db
       .select({
         id: transactions.id,
         transactionNumber: transactions.transactionNumber,
@@ -46,14 +78,35 @@ export async function GET(request: NextRequest) {
         totalAmount: transactions.totalAmount,
         paymentMethod: transactions.paymentMethod,
         shiftId: transactions.shiftId,
+        cashierId: transactions.userId,
         cashierName: users.name,
       })
       .from(transactions)
       .leftJoin(users, eq(transactions.userId, users.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(where)
       .orderBy(desc(transactions.transactionTime));
 
-    return NextResponse.json({ success: true, data: results });
+    const results = pageParam ? await query.limit(pageSize).offset((page - 1) * pageSize) : await query;
+
+    // Daftar kasir yang bertransaksi pada rentang tanggal ini (untuk filter "Kasir").
+    const cashiers = pageParam
+      ? await db
+          .selectDistinct({ id: users.id, name: users.name })
+          .from(transactions)
+          .innerJoin(users, eq(transactions.userId, users.id))
+          .where(dateRange ?? undefined)
+          .orderBy(users.name)
+      : undefined;
+
+    return NextResponse.json({
+      success: true,
+      data: results,
+      total: Number(totalRow?.n ?? 0),
+      totalAmount: Number(totalRow?.amount ?? 0),
+      page,
+      pageSize: pageParam ? pageSize : results.length,
+      cashiers,
+    });
   } catch (error) {
     console.error("GET transactions API error:", error);
     return NextResponse.json(
@@ -62,95 +115,118 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+const PAYMENT_METHODS = ["tunai", "debit", "qris"];
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { items, paymentMethod, cashReceived, userId = "user-kasir-1" } = body;
+    // Hanya kasir yang boleh checkout; identitas diambil dari sesi, bukan dari body.
+    const auth = await requireSession("kasir");
+    if (auth.error) return auth.error;
+    const { session } = auth;
 
-    if (!items || items.length === 0) {
-      return NextResponse.json({ success: false, message: "Keranjang kosong" }, { status: 400 });
+    const body = await request.json();
+    const { items, paymentMethod, cashReceived } = body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new ApiError(400, "Keranjang kosong");
+    }
+    if (!PAYMENT_METHODS.includes(paymentMethod)) {
+      throw new ApiError(400, "Metode pembayaran tidak valid");
     }
 
-    // Wrap in a transaction ideally, but better-sqlite3 with drizzle-orm supports basic transactions
-    // For prototype simplicity we will just execute sequentially
-    
-    // 1. Get active shift
-    const activeShifts = await db.select().from(shifts).where(eq(shifts.status, "buka")).limit(1);
-    const shiftId = activeShifts.length > 0 ? activeShifts[0].id : "SHIFT-001";
-    
+    // Gabungkan qty per produk; harga TIDAK diambil dari client.
+    const qtyByProduct = new Map<string, number>();
+    for (const item of items) {
+      const qty = toInt(item?.qty, 1);
+      if (!item?.id || qty === null) {
+        throw new ApiError(400, "Jumlah barang harus bilangan bulat lebih dari 0");
+      }
+      qtyByProduct.set(item.id, (qtyByProduct.get(item.id) ?? 0) + qty);
+    }
+
     const trxNumber = "TRX-" + Date.now();
     const trxId = randomUUID();
-    
-    let totalAmount = 0;
-    
-    const trxItemsToInsert = [];
-    const stockMovementsToInsert = [];
-    
-    for (const item of items) {
-      const subtotal = item.price * item.qty;
-      totalAmount += subtotal;
-      
-      trxItemsToInsert.push({
-        id: randomUUID(),
-        transactionId: trxId,
-        productId: item.id,
-        quantity: item.qty,
-        price: item.price,
-        subtotal: subtotal
-      });
-      
-      stockMovementsToInsert.push({
-        id: randomUUID(),
-        productId: item.id,
-        type: "penjualan",
-        qtyChange: -item.qty,
-        referenceId: trxId
-      });
-      
-      // Update stock
-      await db.update(products)
-        .set({ stockQty: sql`stock_qty - ${item.qty}` })
-        .where(eq(products.id, item.id));
-    }
-    
-    const actualCashReceived = paymentMethod === "tunai" ? Number(cashReceived) : totalAmount;
-    const changeAmount = paymentMethod === "tunai" ? actualCashReceived - totalAmount : 0;
-    
-    const newTransaction = {
-      id: trxId,
-      transactionNumber: trxNumber,
-      shiftId: shiftId,
-      userId: userId,
-      totalAmount,
-      paymentMethod,
-      cashReceived: actualCashReceived,
-      changeAmount,
-      transactionTime: new Date().toISOString()
-    };
-    
-    await db.insert(transactions).values(newTransaction);
-    
-    for (const ti of trxItemsToInsert) {
-      await db.insert(transactionItems).values(ti);
-    }
-    for (const sm of stockMovementsToInsert) {
-      await db.insert(stockMovements).values(sm);
-    }
+    const now = new Date().toISOString();
 
-    return NextResponse.json({ 
-      success: true, 
+    // Semua tulis dalam satu transaksi SQLite (sinkron): gagal di tengah = tidak ada yang tersimpan.
+    const result = db.transaction((tx) => {
+      const shift = tx
+        .select({ id: shifts.id })
+        .from(shifts)
+        .where(and(eq(shifts.userId, session.id), eq(shifts.status, "buka")))
+        .get();
+      if (!shift) throw new ApiError(400, "Buka shift terlebih dahulu sebelum bertransaksi");
+
+      // Harga dari database + promo aktif hari ini (dihitung di server, tidak percaya client).
+      const priced = priceCart(tx, qtyByProduct);
+      if (priced.missing.length) throw new ApiError(400, "Ada barang yang tidak ditemukan atau sudah tidak aktif");
+      for (const l of priced.lines) {
+        if (!l.isActive) throw new ApiError(400, "Ada barang yang tidak ditemukan atau sudah tidak aktif");
+        if (l.stock < l.qty) throw new ApiError(400, `Stok "${l.name}" tidak cukup (tersisa ${l.stock})`);
+      }
+      const lines = priced.lines;
+      const totalAmount = priced.total;
+
+      let actualCashReceived = totalAmount;
+      let changeAmount = 0;
+      if (paymentMethod === "tunai") {
+        const cash = toInt(cashReceived, 0);
+        if (cash === null || cash < totalAmount) throw new ApiError(400, "Uang diterima kurang dari total belanja");
+        actualCashReceived = cash;
+        changeAmount = cash - totalAmount;
+      }
+
+      tx.insert(transactions).values({
+        id: trxId,
+        transactionNumber: trxNumber,
+        shiftId: shift.id,
+        userId: session.id,
+        totalAmount,
+        paymentMethod,
+        cashReceived: actualCashReceived,
+        changeAmount,
+        transactionTime: now,
+      }).run();
+
+      for (const line of lines) {
+        tx.insert(transactionItems).values({
+          id: randomUUID(),
+          transactionId: trxId,
+          productId: line.productId,
+          quantity: line.qty,
+          price: line.price,
+          discount: line.discount,
+          promotionId: line.promotionId,
+          promotionName: line.promotionName,
+          subtotal: line.subtotal,
+        }).run();
+        tx.update(products)
+          .set({ stockQty: sql`${products.stockQty} - ${line.qty}` })
+          .where(eq(products.id, line.productId))
+          .run();
+        tx.insert(stockMovements).values({
+          id: randomUUID(),
+          productId: line.productId,
+          type: "penjualan",
+          qtyChange: -line.qty,
+          referenceId: trxId,
+        }).run();
+      }
+
+      return { totalAmount, changeAmount, discountTotal: priced.discountTotal };
+    });
+
+    return NextResponse.json({
+      success: true,
       data: {
         id: trxNumber,
-        time: new Date().toLocaleTimeString("id-ID"),
-        total: totalAmount,
-        change: changeAmount
-      }
+        time: new Date(now).toLocaleTimeString("id-ID"),
+        total: result.totalAmount,
+        discount: result.discountTotal,
+        change: result.changeAmount,
+      },
     });
   } catch (error) {
-    console.error("Save transaction API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal menyimpan transaksi" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal menyimpan transaksi", "Save transaction API error:");
   }
 }

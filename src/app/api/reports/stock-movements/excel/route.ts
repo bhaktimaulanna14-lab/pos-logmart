@@ -5,9 +5,13 @@ import { db } from "@/db";
 import { stockMovements, products } from "@/db/schema";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get("period") || "7hari";
     

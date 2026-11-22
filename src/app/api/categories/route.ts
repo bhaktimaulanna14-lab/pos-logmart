@@ -1,9 +1,8 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { categories } from "@/db/schema";
 import { randomUUID } from "crypto";
+import { requireSession } from "@/lib/api-auth";
 
 // GET all categories
 export async function GET() {
@@ -22,16 +21,19 @@ export async function GET() {
 // POST new category
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const body = await request.json();
     const { name, description } = body;
 
-    if (!name) {
+    if (!String(name || "").trim()) {
       return NextResponse.json({ success: false, message: "Nama kategori wajib diisi" }, { status: 400 });
     }
 
     const newCategory = {
       id: "cat-" + randomUUID().substring(0, 8),
-      name,
+      name: String(name).trim(),
       description: description || null,
     };
 

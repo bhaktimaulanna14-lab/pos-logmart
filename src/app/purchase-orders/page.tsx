@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -31,11 +29,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Search, PackagePlus, ChevronRight, Package, Loader2, Trash2 } from "lucide-react";
+import { ProductSearch, type ProductOption } from "@/components/ProductSearch";
 
 export default function PurchaseOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("semua");
-  const [pos, setPos] = useState<Record<string, any>[]>([]);
+  const [pos, setPos] = useState<{ id: string; poNumber: string; supplierName: string; orderDate: string; status: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // States for "Create PO" Dialog
@@ -43,13 +42,10 @@ export default function PurchaseOrdersPage() {
   const [supplierName, setSupplierName] = useState("");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState("");
-  const [selectedQty, setSelectedQty] = useState("");
-  const [poItems, setPoItems] = useState<{ productId: string; name: string; qty: number }[]>([]);
+  const [poItems, setPoItems] = useState<
+    { productId: string; name: string; barcode: string; stock: number; qty: number | "" }[]
+  >([]);
   const [errorMessage, setErrorMessage] = useState("");
-  
-  // Real products data
-  const [products, setProducts] = useState<Record<string, any>[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchPOs = useCallback(async () => {
@@ -67,22 +63,9 @@ export default function PurchaseOrdersPage() {
     }
   }, []);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/products");
-      const json = await res.json();
-      if (json.success) {
-        setProducts(json.data);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  }, []);
-
   useEffect(() => {
     fetchPOs();
-    fetchProducts();
-  }, [fetchPOs, fetchProducts]);
+  }, [fetchPOs]);
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("id-ID", {
@@ -99,32 +82,24 @@ export default function PurchaseOrdersPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleAddItem = () => {
-    if (!selectedProduct || !selectedQty || parseInt(selectedQty) <= 0) return;
-    
-    const prod = products.find(p => p.id === selectedProduct);
-    if (!prod) return;
+  // Barang dipilih lewat ketik nama / scan barcode. Barang yang sama menambah qty.
+  const handleAddItem = (prod: ProductOption) => {
+    setPoItems((items) => {
+      const idx = items.findIndex((i) => i.productId === prod.id);
+      if (idx >= 0) {
+        return items.map((i, n) => (n === idx ? { ...i, qty: (Number(i.qty) || 0) + 1 } : i));
+      }
+      return [...items, { productId: prod.id, name: prod.name, barcode: prod.barcode, stock: prod.stock, qty: 1 }];
+    });
+  };
 
-    const existingIndex = poItems.findIndex(i => i.productId === selectedProduct);
-    if (existingIndex >= 0) {
-      const newItems = [...poItems];
-      newItems[existingIndex].qty += parseInt(selectedQty);
-      setPoItems(newItems);
-    } else {
-      setPoItems([
-        ...poItems,
-        { productId: prod.id, name: prod.name, qty: parseInt(selectedQty) }
-      ]);
-    }
-
-    setSelectedProduct("");
-    setSelectedQty("");
+  const handleQtyChange = (idx: number, value: string) => {
+    const qty = value === "" ? "" : Math.max(0, Math.floor(Number(value) || 0));
+    setPoItems((items) => items.map((i, n) => (n === idx ? { ...i, qty } : i)));
   };
 
   const handleRemoveItem = (idx: number) => {
-    const newItems = [...poItems];
-    newItems.splice(idx, 1);
-    setPoItems(newItems);
+    setPoItems((items) => items.filter((_, n) => n !== idx));
   };
 
   const handleSubmitPO = async () => {
@@ -141,6 +116,10 @@ export default function PurchaseOrdersPage() {
       setErrorMessage("Minimal 1 barang harus ditambahkan.");
       return;
     }
+    if (poItems.some((i) => !Number.isInteger(Number(i.qty)) || Number(i.qty) <= 0)) {
+      setErrorMessage("Jumlah setiap barang harus lebih dari 0.");
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -151,7 +130,7 @@ export default function PurchaseOrdersPage() {
           supplierName,
           orderDate,
           notes,
-          items: poItems,
+          items: poItems.map((i) => ({ productId: i.productId, qty: Number(i.qty) })),
         })
       });
       const json = await res.json();
@@ -214,7 +193,7 @@ export default function PurchaseOrdersPage() {
           />
         </div>
         <div className="w-[200px]">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "semua")}>
             <SelectTrigger>
               <SelectValue placeholder="Semua Status" />
             </SelectTrigger>
@@ -365,35 +344,14 @@ export default function PurchaseOrdersPage() {
             <div className="space-y-3 pt-2">
               <Label>Daftar Barang Pesanan</Label>
               
-              <div className="flex gap-2 items-end">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Pilih Barang</Label>
-                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih produk..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map(prod => (
-                        <SelectItem key={prod.id} value={prod.id}>
-                          {prod.name} ({prod.barcode})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-24 space-y-1">
-                  <Label className="text-xs text-muted-foreground">Qty</Label>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    placeholder="0" 
-                    value={selectedQty}
-                    onChange={(e) => setSelectedQty(e.target.value)}
-                  />
-                </div>
-                <Button variant="secondary" onClick={handleAddItem} disabled={!selectedProduct || !selectedQty}>
-                  Tambah
-                </Button>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Cari barang — ketik nama atau scan/ketik barcode lalu Enter
+                </Label>
+                <ProductSearch onSelect={handleAddItem} />
+                <p className="text-xs text-muted-foreground">
+                  Barang yang sama dipilih lagi akan menambah jumlahnya. Jumlah bisa diubah di tabel.
+                </p>
               </div>
 
               <div className="mt-4 max-h-[200px] overflow-y-auto">
@@ -415,9 +373,23 @@ export default function PurchaseOrdersPage() {
                         </TableRow>
                       ) : (
                         poItems.map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">{item.name}</TableCell>
-                            <TableCell className="text-center">{item.qty}</TableCell>
+                          <TableRow key={item.productId}>
+                            <TableCell className="font-medium">
+                              {item.name}
+                              <div className="text-xs text-muted-foreground font-normal">
+                                {item.barcode} · stok sekarang {item.stock}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Input
+                                type="number"
+                                min="1"
+                                aria-label={`Jumlah ${item.name}`}
+                                className="h-8 w-20 mx-auto text-center"
+                                value={item.qty}
+                                onChange={(e) => handleQtyChange(idx, e.target.value)}
+                              />
+                            </TableCell>
                             <TableCell className="text-center p-0">
                               <Button 
                                 variant="ghost" 
@@ -442,11 +414,19 @@ export default function PurchaseOrdersPage() {
                     </div>
                   ) : (
                     poItems.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 border rounded-md">
-                        <div>
-                          <div className="font-bold">{item.name}</div>
-                          <div className="text-sm text-slate-500">Qty: {item.qty}</div>
+                      <div key={item.productId} className="flex items-center justify-between gap-2 p-3 border rounded-md">
+                        <div className="min-w-0">
+                          <div className="font-bold truncate">{item.name}</div>
+                          <div className="text-xs text-slate-500">{item.barcode}</div>
                         </div>
+                        <Input
+                          type="number"
+                          min="1"
+                          aria-label={`Jumlah ${item.name}`}
+                          className="h-8 w-20 text-center shrink-0"
+                          value={item.qty}
+                          onChange={(e) => handleQtyChange(idx, e.target.value)}
+                        />
                         <Button 
                           variant="ghost" 
                           size="icon" 

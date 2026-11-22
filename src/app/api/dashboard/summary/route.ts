@@ -1,68 +1,48 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, shifts } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { requireSession, errorResponse } from "@/lib/api-auth";
+import { resolvePeriod } from "@/lib/report-period";
 
+// Ringkasan beranda. "Hari ini" dan "bulan ini" mengikuti kalender WIB.
 export async function GET() {
   try {
-    // 1. Get today's total sales
-    const todaySalesResult = await db
-      .select({ total: sql<number>`SUM(total_amount)` })
-      .from(transactions)
-      .where(sql`date(transaction_time) = date('now')`);
-    const todaySales = todaySalesResult[0]?.total || 0;
+    const auth = await requireSession();
+    if (auth.error) return auth.error;
 
-    // 2. Get today's transaction count
-    const txCountResult = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(transactions)
-      .where(sql`date(transaction_time) = date('now')`);
-    const todayTransactions = txCountResult[0]?.count || 0;
+    const today = resolvePeriod(new URLSearchParams("period=hariIni"));
+    const month = resolvePeriod(new URLSearchParams("period=bulanIni"));
 
-    // 3. Get total active cash in open shifts
-    const activeCashResult = await db
-      .select({ totalCash: sql<number>`SUM(opening_cash)` })
+    const sumIn = (startIso: string, endIso: string) =>
+      db
+        .select({
+          total: sql<number>`coalesce(sum(${transactions.totalAmount}), 0)`,
+          count: sql<number>`count(*)`,
+        })
+        .from(transactions)
+        .where(and(gte(transactions.transactionTime, startIso), lt(transactions.transactionTime, endIso)))
+        .get();
+
+    const [todayRow, monthRow] = await Promise.all([sumIn(today.startIso, today.endIso), sumIn(month.startIso, month.endIso)]);
+
+    const cashRow = await db
+      .select({ totalCash: sql<number>`coalesce(sum(${shifts.openingCash}), 0)` })
       .from(shifts)
-      .where(sql`status = 'buka'`);
-    const activeCash = activeCashResult[0]?.totalCash || 0;
-
-    // 4. Get this month's total sales
-    const monthlySalesResult = await db
-      .select({ total: sql<number>`SUM(total_amount)` })
-      .from(transactions)
-      .where(sql`strftime('%Y-%m', transaction_time) = strftime('%Y-%m', 'now')`);
-    const monthlySales = monthlySalesResult[0]?.total || 0;
-
-    // 5. Get this month's transaction count
-    const monthlyTxCountResult = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(transactions)
-      .where(sql`strftime('%Y-%m', transaction_time) = strftime('%Y-%m', 'now')`);
-    const monthlyTransactions = monthlyTxCountResult[0]?.count || 0;
+      .where(eq(shifts.status, "buka"))
+      .get();
 
     return NextResponse.json({
       success: true,
       data: {
-        todaySales,
-        todayTransactions,
-        activeCash,
-        monthlySales,
-        monthlyTransactions,
-        
-        _fallback: {
-          todaySales: 2450000,
-          todayTransactions: 142,
-          activeCash: 1100000,
-        },
+        todaySales: Number(todayRow?.total ?? 0),
+        todayTransactions: Number(todayRow?.count ?? 0),
+        activeCash: Number(cashRow?.totalCash ?? 0),
+        monthlySales: Number(monthRow?.total ?? 0),
+        monthlyTransactions: Number(monthRow?.count ?? 0),
       },
     });
   } catch (error) {
-    console.error("Dashboard summary API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal mengambil data rekap" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal mengambil data rekap", "Dashboard summary API error:");
   }
 }

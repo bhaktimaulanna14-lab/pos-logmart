@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
@@ -56,12 +54,12 @@ export default function Home() {
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
+          // Angka asli dari database; 0 berarti memang belum ada penjualan.
           const d = json.data;
-          const fb = d._fallback || {};
           setSummary({
-            todaySales: d.todaySales || fb.todaySales || 0,
-            todayTransactions: d.todayTransactions || fb.todayTransactions || 0,
-            activeCash: d.activeCash || fb.activeCash || 0,
+            todaySales: d.todaySales || 0,
+            todayTransactions: d.todayTransactions || 0,
+            activeCash: d.activeCash || 0,
             monthlySales: d.monthlySales || 0,
             monthlyTransactions: d.monthlyTransactions || 0,
           });
@@ -73,7 +71,7 @@ export default function Home() {
       .then((res) => res.json())
       .then((json) => {
         if (json.success) {
-          setLowStockItems(json.data.length > 0 ? json.data : (json._fallback || []));
+          setLowStockItems(json.data);
         }
       })
       .catch((err) => console.error(err));
@@ -164,7 +162,7 @@ export default function Home() {
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tickFormatter={formatRupiah} tick={{ fontSize: 11 }} width={70} />
               <Tooltip
-                formatter={(value: number) => [`Rp ${value.toLocaleString("id-ID")}`, "Penjualan"]}
+                formatter={(value) => [`Rp ${Number(value).toLocaleString("id-ID")}`, "Penjualan"]}
                 labelStyle={{ fontWeight: "bold" }}
               />
               <Bar dataKey="sales" fill="url(#brandGreenBar)" radius={[4, 4, 0, 0]} />

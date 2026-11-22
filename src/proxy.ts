@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decrypt } from "@/lib/session";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Lewati resource statis dan api login
@@ -23,14 +23,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Proteksi role (manajer saja)
-  const isManagerRoute = 
-    path.startsWith("/users") || 
-    path.startsWith("/reports") || 
-    path.startsWith("/purchase-orders") ||
-    path.startsWith("/api/users") || 
-    path.startsWith("/api/reports") || 
-    path.startsWith("/api/purchase-orders");
+  // Proteksi role (manajer saja). Route handler juga mengecek sendiri lewat requireSession().
+  const managerPrefixes = [
+    "/users", "/reports", "/purchase-orders", "/products", "/returns", "/import", "/promotions",
+    "/api/users", "/api/reports", "/api/purchase-orders", "/api/returns", "/api/import", "/api/promotions",
+  ];
+  const matchesPrefix = (prefix: string) => path === prefix || path.startsWith(prefix + "/");
+  // Kasir tetap boleh MEMBACA barang & kategori (dipakai menu Kasir), tapi tidak boleh mengubahnya.
+  const isCatalogWrite =
+    (matchesPrefix("/api/products") || matchesPrefix("/api/categories")) && request.method !== "GET";
+  const isManagerRoute = managerPrefixes.some(matchesPrefix) || isCatalogWrite;
 
   if (isManagerRoute && session.role !== "manajer") {
     if (path.startsWith("/api/")) {

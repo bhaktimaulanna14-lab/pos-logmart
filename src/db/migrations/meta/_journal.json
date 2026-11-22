@@ -15,6 +15,20 @@
       "when": 1789271072242,
       "tag": "0001_new_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795320639648,
+      "tag": "0002_add_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795321223771,
+      "tag": "0003_promotions",
+      "breakpoints": true
     }
   ]
 }

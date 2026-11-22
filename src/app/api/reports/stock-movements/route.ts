@@ -1,28 +1,45 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { stockMovements, products } from "@/db/schema";
-import { eq, gte, lte, and } from "drizzle-orm";
+import { and, eq, gte, lt, sql, desc, asc, gt } from "drizzle-orm";
+import { requireSession, errorResponse } from "@/lib/api-auth";
+import { resolvePeriod } from "@/lib/report-period";
 
+// Pergerakan stok + barang cepat/lambat terjual pada periode terpilih.
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const period = searchParams.get("period") || "7hari";
-    
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (period === "bulanIni") {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else {
-      startDate.setDate(startDate.getDate() - 7);
-    }
-    
-    const startIso = startDate.toISOString();
-    const endIso = now.toISOString();
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
 
-    const movements = await db
+    const period = resolvePeriod(request.nextUrl.searchParams);
+    // stock_movements.created_at disimpan sebagai "YYYY-MM-DD HH:MM:SS" (UTC).
+    const inPeriod = and(gte(stockMovements.createdAt, period.startSql), lt(stockMovements.createdAt, period.endSql));
+    const dayCount = Math.max(period.days.length, 1);
+
+    const soldQty = sql<number>`sum(-${stockMovements.qtyChange})`;
+    const fastMoving = await db
+      .select({ productId: products.id, name: products.name, qty: soldQty })
+      .from(stockMovements)
+      .innerJoin(products, eq(stockMovements.productId, products.id))
+      .where(and(inPeriod, eq(stockMovements.type, "penjualan")))
+      .groupBy(products.id)
+      .orderBy(desc(soldQty))
+      .limit(5);
+
+    // Lambat terjual: barang aktif yang masih ada stok, dengan penjualan paling sedikit (termasuk 0).
+    const soldInPeriod = sql<number>`coalesce((
+      select sum(-sm.qty_change) from stock_movements sm
+      where sm.product_id = ${products.id} and sm.type = 'penjualan'
+        and sm.created_at >= ${period.startSql} and sm.created_at < ${period.endSql}
+    ), 0)`;
+    const slowMoving = await db
+      .select({ productId: products.id, name: products.name, stock: products.stockQty, qty: soldInPeriod })
+      .from(products)
+      .where(and(eq(products.isActive, true), gt(products.stockQty, 0)))
+      .orderBy(asc(soldInPeriod), desc(products.stockQty))
+      .limit(5);
+
+    const allMovements = await db
       .select({
         id: stockMovements.id,
         productId: stockMovements.productId,
@@ -34,42 +51,23 @@ export async function GET(request: NextRequest) {
       })
       .from(stockMovements)
       .innerJoin(products, eq(stockMovements.productId, products.id))
-      .where(and(
-        gte(stockMovements.createdAt, startIso),
-        lte(stockMovements.createdAt, endIso)
-      ));
+      .where(inPeriod)
+      .orderBy(desc(stockMovements.createdAt))
+      .limit(500);
 
-    // Aggregate qty change for fast/slow (penjualan only)
-    const penjualanMovements = movements.filter(m => m.type === "penjualan");
-    const aggregated = penjualanMovements.reduce((acc: any, mov) => {
-      if (!acc[mov.productId]) {
-        acc[mov.productId] = { name: mov.name, qty: 0 };
-      }
-      acc[mov.productId].qty += Math.abs(mov.qtyChange);
-      return acc;
-    }, {});
+    const perDay = (q: number) => Math.round((Number(q) / dayCount) * 10) / 10;
 
-    const sorted = Object.values(aggregated).sort((a: any, b: any) => b.qty - a.qty);
-    
-    const fastMoving = sorted.slice(0, 5); // top 5
-    const slowMoving = sorted.slice().reverse().slice(0, 5); // bottom 5
-
-    // Sort all movements by time descending for table
-    const allMovements = movements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: {
-        fastMoving,
-        slowMoving,
-        allMovements
-      } 
+        period: { key: period.key, label: period.label, days: dayCount },
+        fastMoving: fastMoving.map((r) => ({ ...r, qty: Number(r.qty), perDay: perDay(r.qty) })),
+        slowMoving: slowMoving.map((r) => ({ ...r, qty: Number(r.qty), perDay: perDay(r.qty) })),
+        // created_at SQL (UTC) → ISO agar dibaca benar oleh browser.
+        allMovements: allMovements.map((m) => ({ ...m, date: m.date.includes("T") ? m.date : m.date.replace(" ", "T") + "Z" })),
+      },
     });
   } catch (error) {
-    console.error("GET stock movements report API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal mengambil data pergerakan barang" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal mengambil data pergerakan barang", "GET stock movements report API error:");
   }
 }

@@ -4,12 +4,16 @@ import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { returns, products, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const returnId = (await params).id;
 
     const result = await db

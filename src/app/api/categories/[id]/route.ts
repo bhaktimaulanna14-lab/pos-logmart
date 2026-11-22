@@ -1,60 +1,57 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
-import { categories } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { categories, products } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { requireSession, ApiError, errorResponse } from "@/lib/api-auth";
+
+type Params = { params: Promise<{ id: string }> };
 
 // PUT update category
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const id = (await params).id;
-    const body = await request.json();
-    const { name, description } = body;
+    const { name, description } = await request.json();
 
-    if (!name) {
-      return NextResponse.json({ success: false, message: "Nama kategori wajib diisi" }, { status: 400 });
-    }
+    if (!String(name || "").trim()) throw new ApiError(400, "Nama kategori wajib diisi");
 
-    await db
+    const result = db
       .update(categories)
-      .set({
-        name,
-        description: description || null,
-      })
-      .where(eq(categories.id, id));
+      .set({ name: String(name).trim(), description: description || null })
+      .where(eq(categories.id, id))
+      .run();
+    if (result.changes === 0) throw new ApiError(404, "Kategori tidak ditemukan");
 
     return NextResponse.json({ success: true, message: "Kategori berhasil diperbarui" });
   } catch (error) {
-    console.error("PUT category API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal memperbarui kategori" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal memperbarui kategori", "PUT category API error:");
   }
 }
 
-// DELETE category
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// DELETE category (ditolak bila masih dipakai barang)
+export async function DELETE(_request: NextRequest, { params }: Params) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const id = (await params).id;
 
-    // Ideally, check if category is used in products before deleting.
-    // For this prototype, we'll just delete.
-    await db.delete(categories).where(eq(categories.id, id));
+    const used = db
+      .select({ n: sql<number>`count(*)` })
+      .from(products)
+      .where(eq(products.categoryId, id))
+      .get();
+    if (Number(used?.n ?? 0) > 0) {
+      throw new ApiError(409, `Kategori masih dipakai oleh ${used?.n} barang. Pindahkan barangnya dulu.`);
+    }
+
+    const result = db.delete(categories).where(eq(categories.id, id)).run();
+    if (result.changes === 0) throw new ApiError(404, "Kategori tidak ditemukan");
 
     return NextResponse.json({ success: true, message: "Kategori berhasil dihapus" });
   } catch (error) {
-    console.error("DELETE category API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal menghapus kategori. Mungkin sedang digunakan oleh produk." },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal menghapus kategori", "DELETE category API error:");
   }
 }

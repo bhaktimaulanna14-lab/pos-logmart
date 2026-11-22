@@ -26,7 +26,11 @@ export async function POST(request: NextRequest) {
     }
 
     const user = result[0];
-    
+
+    if (!user.isActive) {
+      return NextResponse.json({ success: false, message: "Akun ini sudah dinonaktifkan. Hubungi manajer." }, { status: 403 });
+    }
+
     // Verify password hash
     const isValid = await verifyPassword(password, user.passwordHash || "");
     if (!isValid) {
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
     const isHttps = request.headers.get("x-forwarded-proto") === "https";
     cookieStore.set("pos_session", sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production" || isHttps,
+      secure: isHttps,
       sameSite: "lax",
       maxAge: 60 * 60 * 8, // 8 hours
       path: "/",

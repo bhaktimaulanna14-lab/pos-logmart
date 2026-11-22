@@ -4,9 +4,13 @@ import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { purchaseOrders, purchaseOrderItems, products } from "@/db/schema";
 import { eq, like, or, desc, and } from "drizzle-orm";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get("q");
 

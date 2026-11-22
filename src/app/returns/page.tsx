@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -30,7 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, PlusCircle, RotateCcw, Eye, Package } from "lucide-react";
+import { Search, PlusCircle, RotateCcw, Eye } from "lucide-react";
+import { ProductPicker, type ProductOption } from "@/components/ProductSearch";
 
 type ReturnItem = {
   id: number;
@@ -45,6 +44,8 @@ type ReturnItem = {
   processedAt?: string;
   processedBy?: number;
   processedByName?: string;
+  supplierName?: string | null;
+  isPurchaseReturn?: boolean;
 };
 
 type Product = {
@@ -56,7 +57,9 @@ type Product = {
 
 export default function ReturnsPage() {
   const [returns, setReturns] = useState<ReturnItem[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  // Barang terpilih di form retur (dicari lewat nama / barcode, bukan dropdown semua barang).
+  const [customerProduct, setCustomerProduct] = useState<ProductOption | null>(null);
+  const [supplierProduct, setSupplierProduct] = useState<ProductOption | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,11 +101,11 @@ export default function ReturnsPage() {
       const jsonSales = await resSales.json();
       const jsonPurchase = await resPurchase.json();
       
-      let all = [];
+      let all: ReturnItem[] = [];
       if (jsonSales.success) all = [...all, ...jsonSales.data];
       // Mark purchase returns so UI can identify them easily
       if (jsonPurchase.success) {
-        const purchaseData = jsonPurchase.data.map(item => ({...item, isPurchaseReturn: true}));
+        const purchaseData = jsonPurchase.data.map((item: ReturnItem) => ({ ...item, isPurchaseReturn: true }));
         all = [...all, ...purchaseData];
       }
       
@@ -117,21 +120,8 @@ export default function ReturnsPage() {
     }
   };
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products');
-      const json = await res.json();
-      if (json.success) {
-        setProducts(json.data);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   useEffect(() => {
     fetchReturns();
-    fetchProducts();
   }, [searchQuery, statusFilter]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -168,6 +158,7 @@ export default function ReturnsPage() {
       if (json.success) {
         setIsFormOpen(false);
         setFormData({ transactionId: "", productId: "", qty: 1, reason: "" });
+        setCustomerProduct(null);
         fetchReturns();
       } else {
         alert(json.message || "Gagal mengajukan retur");
@@ -204,6 +195,7 @@ export default function ReturnsPage() {
       if (json.success) {
         setIsSupplierFormOpen(false);
         setSupplierFormData({ supplierName: "", productId: "", qty: 1, reason: "" });
+        setSupplierProduct(null);
         fetchReturns();
       } else {
         alert(json.message || "Gagal mengajukan retur");
@@ -304,7 +296,7 @@ export default function ReturnsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "semua")}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -491,19 +483,13 @@ export default function ReturnsPage() {
             
             <div className="grid gap-2">
               <Label htmlFor="productId">Barang yang Diretur</Label>
-              <Select 
-                value={formData.productId} 
-                onValueChange={(val) => setFormData(prev => ({ ...prev, productId: val }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih barang" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map(p => (
-                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProductPicker
+                value={customerProduct}
+                onChange={(p) => {
+                  setCustomerProduct(p);
+                  setFormData(prev => ({ ...prev, productId: p?.id ?? "" }));
+                }}
+              />
             </div>
             
             <div className="grid gap-2">
@@ -568,19 +554,14 @@ export default function ReturnsPage() {
             
             <div className="grid gap-2">
               <Label htmlFor="productIdSup">Barang yang Diretur</Label>
-              <Select 
-                value={supplierFormData.productId} 
-                onValueChange={(val) => setSupplierFormData(prev => ({ ...prev, productId: val }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih barang" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map(p => (
-                    <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProductPicker
+                value={supplierProduct}
+                disableOutOfStock
+                onChange={(p) => {
+                  setSupplierProduct(p);
+                  setSupplierFormData(prev => ({ ...prev, productId: p?.id ?? "" }));
+                }}
+              />
             </div>
             
             <div className="grid gap-2">
@@ -650,7 +631,7 @@ export default function ReturnsPage() {
               <div className="grid grid-cols-3 gap-2 py-2 border-b">
                 <div className="text-muted-foreground">Alasan</div>
                 <div className="col-span-2 font-medium text-red-600">
-                  "{selectedReturn.reason}"
+                  &ldquo;{selectedReturn.reason}&rdquo;
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 py-2 border-b">

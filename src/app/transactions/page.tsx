@@ -1,47 +1,93 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ArrowLeft, Search, Calendar, Filter, Eye, Printer, X, Loader2 } from "lucide-react";
+import { Search, Calendar, Eye, Printer, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReceiptModal } from "@/components/ReceiptModal";
 
+type TransactionRow = {
+  id: string;
+  transactionNumber: string;
+  transactionTime: string;
+  totalAmount: number;
+  paymentMethod: string;
+  shiftId: string;
+  cashierId: string;
+  cashierName: string | null;
+};
+
+/** Detail transaksi dari GET /api/transactions/[nomor]. `id` = nomor transaksi. */
+type TransactionDetail = {
+  id: string;
+  time: string;
+  cashier: string;
+  total: number;
+  paymentMethod: string;
+  cashReceived: number;
+  change: number;
+  items: { id: string; name: string; qty: number; price: number }[];
+};
+
+const PAGE_SIZE = 50;
+/** Tanggal hari ini dalam WIB (YYYY-MM-DD). */
+const todayWib = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+
 export default function TransactionsPage() {
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [transactionsData, setTransactionsData] = useState<Record<string, any>[]>([]);
+  const [filterDate, setFilterDate] = useState(todayWib()); // "" = semua tanggal
+  const [filterCashier, setFilterCashier] = useState("Semua");
+  const [page, setPage] = useState(1);
+
+  const [transactionsData, setTransactionsData] = useState<TransactionRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [cashiers, setCashiers] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Debounce kolom cari nomor struk.
   useEffect(() => {
-    fetch('/api/transactions')
-      .then(res => res.json())
-      .then(json => {
-        if(json.success) setTransactionsData(json.data);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setIsLoading(false);
-      });
-  }, []);
+    const t = setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const [filterCashier, setFilterCashier] = useState("Semua");
-  const [selectedTrx, setSelectedTrx] = useState<Record<string, any>>(null);
+  // Filter & pagination dikerjakan di server — tidak lagi mengunduh semua transaksi.
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    if (searchTerm) params.set("q", searchTerm);
+    if (filterDate) params.set("date", filterDate);
+    if (filterCashier !== "Semua") params.set("cashierId", filterCashier);
+
+    fetch(`/api/transactions?${params.toString()}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (cancelled || !json.success) return;
+        setTransactionsData(json.data);
+        setTotal(json.total ?? json.data.length);
+        setTotalAmount(json.totalAmount ?? 0);
+        if (json.cashiers) setCashiers(json.cashiers);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => !cancelled && setIsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [page, searchTerm, filterDate, filterCashier]);
+
+  const [selectedTrx, setSelectedTrx] = useState<TransactionDetail | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
-  const filteredData = transactionsData.filter((t) => {
-    const matchSearch = t.transactionNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    // In our simplified list, we just match cashier name if we had them explicitly, 
-    // or let's say "Semua" for now since filter options are hardcoded.
-    // To make it functional against the actual cashier name:
-    const matchCashier = filterCashier === "Semua" || t.cashierName === filterCashier;
-    return matchSearch && matchCashier;
-  });
+  const filteredData = transactionsData;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const fetchTransactionDetail = async (trxNumber: string, action: "detail" | "print") => {
     setIsLoadingDetail(true);
@@ -91,30 +137,61 @@ export default function TransactionsPage() {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari nomor struk..." 
+            <Input
+              placeholder="Cari nomor struk..."
               className="pl-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 w-full md:w-auto">
-              <Calendar className="w-4 h-4" />
-              Tgl: Hari Ini
+          <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 rounded-md border px-3 h-10 text-sm bg-white">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="sr-only">Tanggal</span>
+              <input
+                type="date"
+                className="outline-none bg-transparent"
+                value={filterDate}
+                onChange={(e) => {
+                  setFilterDate(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </label>
+            <Button
+              variant={filterDate ? "outline" : "default"}
+              className="h-10"
+              onClick={() => {
+                setFilterDate(filterDate ? "" : todayWib());
+                setPage(1);
+              }}
+            >
+              {filterDate ? "Semua Tanggal" : "Hari Ini"}
             </Button>
-            <select 
+            <select
               className="flex h-10 w-full md:w-auto items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               value={filterCashier}
-              onChange={(e) => setFilterCashier(e.target.value)}
+              onChange={(e) => {
+                setFilterCashier(e.target.value);
+                setPage(1);
+              }}
             >
               <option value="Semua">Semua Kasir</option>
-              {/* Generate unique cashiers from data */}
-              {Array.from(new Set(transactionsData.map(t => t.cashierName).filter(Boolean))).map(cashier => (
-                <option key={cashier} value={cashier}>{cashier}</option>
+              {cashiers.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="text-sm text-slate-600">
+          {isLoading ? "Memuat..." : (
+            <>
+              <span className="font-semibold">{total.toLocaleString("id-ID")}</span> transaksi
+              {filterDate ? ` pada ${new Date(filterDate + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}` : ""}
+              {" · "}total <span className="font-semibold">Rp {totalAmount.toLocaleString("id-ID")}</span>
+            </>
+          )}
         </div>
 
         {/* Desktop Table */}
@@ -245,6 +322,19 @@ export default function TransactionsPage() {
             </div>
           )}
         </div>
+
+        {total > PAGE_SIZE && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-sm text-slate-600">
+            <div>
+              Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} dari {total.toLocaleString("id-ID")}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage((p) => p - 1)}>‹ Sebelumnya</Button>
+              <span className="px-2 whitespace-nowrap">Hal. {page} / {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages || isLoading} onClick={() => setPage((p) => p + 1)}>Berikutnya ›</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={!!selectedTrx && !showReceipt} onOpenChange={(open) => !open && setSelectedTrx(null)}>
@@ -272,7 +362,7 @@ export default function TransactionsPage() {
                 <div className="font-semibold text-sm">Daftar Barang</div>
                 {selectedTrx.items && selectedTrx.items.length > 0 ? (
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {selectedTrx.items.map((item: any, i: number) => (
+                    {selectedTrx.items.map((item, i: number) => (
                       <div key={i} className="flex justify-between text-sm">
                         <span>{item.name} <span className="text-slate-500">x{item.qty}</span></span>
                         <span>Rp {(item.qty * item.price).toLocaleString("id-ID")}</span>
@@ -317,7 +407,7 @@ export default function TransactionsPage() {
           setShowReceipt(false);
           setSelectedTrx(null); // Clear selected trx when modal closes
         }} 
-        transactionId={selectedTrx?.transactionNumber} 
+        transactionId={selectedTrx?.id /* detail API mengembalikan nomor transaksi di field `id` */}
       />
     </div>
   );

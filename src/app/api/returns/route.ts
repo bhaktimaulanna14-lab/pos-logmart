@@ -1,10 +1,9 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
-import { returns, products, stockMovements, users } from "@/db/schema";
-import { eq, desc, like, and, sql } from "drizzle-orm";
+import { returns, products, stockMovements, users, transactions, transactionItems } from "@/db/schema";
+import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 // GET: List all returns
 export async function GET(request: NextRequest) {
@@ -72,51 +71,70 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Create a new return + adjust stock
+// POST: Ajukan retur (status pending). Stok baru berubah saat disetujui (PATCH).
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const body = await request.json();
-    const { transactionId, supplierName, productId, quantity, reason, userId = "user-admin-1" } = body;
+    const { transactionId, supplierName, productId, reason } = body;
+    const quantity = toInt(body.quantity, 1);
 
-    if (!productId || !quantity || !reason) {
-      return NextResponse.json(
-        { success: false, message: "Data retur tidak lengkap" },
-        { status: 400 }
-      );
+    if (!productId || !String(reason || "").trim()) {
+      throw new ApiError(400, "Data retur tidak lengkap (barang dan alasan wajib diisi)");
+    }
+    if (quantity === null) {
+      throw new ApiError(400, "Jumlah retur harus bilangan bulat lebih dari 0");
     }
 
-    if (quantity <= 0) {
-      return NextResponse.json(
-        { success: false, message: "Jumlah retur harus lebih dari 0" },
-        { status: 400 }
-      );
-    }
+    const product = await db.select().from(products).where(eq(products.id, productId)).get();
+    if (!product) throw new ApiError(404, "Barang tidak ditemukan");
 
-    // Verify product exists
-    const productResult = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, productId))
-      .limit(1);
+    let linkedTransactionId: string | null = null;
+    if (supplierName) {
+      // Retur ke supplier: stok harus cukup untuk dikembalikan.
+      if (product.stockQty < quantity) {
+        throw new ApiError(400, `Stok "${product.name}" tidak cukup untuk diretur (tersisa ${product.stockQty})`);
+      }
+    } else if (transactionId) {
+      // Retur pelanggan: transaksi boleh diisi dengan nomor (TRX-...) atau ID internal.
+      const trx = await db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(or(eq(transactions.id, transactionId), eq(transactions.transactionNumber, String(transactionId).trim())))
+        .get();
+      if (!trx) throw new ApiError(404, `Transaksi "${transactionId}" tidak ditemukan`);
 
-    if (productResult.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Barang tidak ditemukan" },
-        { status: 404 }
-      );
+      const sold = await db
+        .select({ qty: sql<number>`coalesce(sum(${transactionItems.quantity}), 0)` })
+        .from(transactionItems)
+        .where(and(eq(transactionItems.transactionId, trx.id), eq(transactionItems.productId, productId)))
+        .get();
+      const alreadyReturned = await db
+        .select({ qty: sql<number>`coalesce(sum(${returns.quantity}), 0)` })
+        .from(returns)
+        .where(and(eq(returns.transactionId, trx.id), eq(returns.productId, productId), sql`${returns.status} != 'ditolak'`))
+        .get();
+      const soldQty = Number(sold?.qty ?? 0);
+      if (soldQty === 0) throw new ApiError(400, "Barang ini tidak ada di transaksi tersebut");
+      const remaining = soldQty - Number(alreadyReturned?.qty ?? 0);
+      if (quantity > remaining) {
+        throw new ApiError(400, `Jumlah retur melebihi jumlah yang dibeli (bisa diretur: ${remaining})`);
+      }
+      linkedTransactionId = trx.id;
     }
 
     const returnId = randomUUID();
     const returnNumber = "RTR-" + Date.now();
-    
-    // Store supplier return info in reason since schema cannot be changed
+
+    // Info supplier disimpan di kolom reason (skema retur pelanggan tidak punya kolom supplier).
     const finalReason = supplierName ? `[SUPPLIER] ${supplierName} | ${reason}` : reason;
 
-    // Insert return record
     await db.insert(returns).values({
       id: returnId,
       returnNumber,
-      transactionId: transactionId || null,
+      transactionId: linkedTransactionId,
       productId,
       quantity,
       reason: finalReason,
@@ -126,126 +144,70 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: {
-        id: returnId,
-        returnNumber,
-        status: "pending",
-      },
+      data: { id: returnId, returnNumber, status: "pending" },
       message: "Retur berhasil diajukan",
     });
   } catch (error) {
-    console.error("POST returns API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal membuat retur" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal membuat retur", "POST returns API error:");
   }
 }
 
-// PATCH: Approve or reject a return
+// PATCH: Setujui atau tolak retur — update status + stok dalam satu transaksi.
 export async function PATCH(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const returnId = searchParams.get("id");
-    
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
+    const returnId = request.nextUrl.searchParams.get("id");
     const body = await request.json();
-    const { status: action, userId = "user-admin-1" } = body;
+    const action = body.status;
 
-    if (!returnId || !action) {
-      return NextResponse.json(
-        { success: false, message: "Data tidak lengkap" },
-        { status: 400 }
-      );
-    }
+    if (!returnId || !action) throw new ApiError(400, "Data tidak lengkap");
+    if (!["disetujui", "ditolak"].includes(action)) throw new ApiError(400, "Aksi tidak valid");
 
-    if (!["disetujui", "ditolak"].includes(action)) {
-      return NextResponse.json(
-        { success: false, message: "Aksi tidak valid" },
-        { status: 400 }
-      );
-    }
+    db.transaction((tx) => {
+      const returnRecord = tx.select().from(returns).where(eq(returns.id, returnId)).get();
+      if (!returnRecord) throw new ApiError(404, "Retur tidak ditemukan");
+      if (returnRecord.status !== "pending") throw new ApiError(400, "Retur sudah diproses sebelumnya");
 
-    // Find the return
-    const returnResult = await db
-      .select()
-      .from(returns)
-      .where(eq(returns.id, returnId))
-      .limit(1);
+      if (action === "disetujui") {
+        const isSupplierReturn = returnRecord.reason.startsWith("[SUPPLIER]");
+        // Retur ke supplier mengurangi stok; retur pelanggan menambah stok.
+        const qtyChange = isSupplierReturn ? -returnRecord.quantity : returnRecord.quantity;
 
-    if (returnResult.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Retur tidak ditemukan" },
-        { status: 404 }
-      );
-    }
+        if (isSupplierReturn) {
+          const product = tx.select({ stockQty: products.stockQty, name: products.name }).from(products).where(eq(products.id, returnRecord.productId)).get();
+          if (!product || product.stockQty < returnRecord.quantity) {
+            throw new ApiError(400, `Stok "${product?.name ?? "barang"}" tidak cukup untuk retur ke supplier (tersisa ${product?.stockQty ?? 0})`);
+          }
+        }
 
-    const returnRecord = returnResult[0];
+        tx.update(products)
+          .set({ stockQty: sql`${products.stockQty} + ${qtyChange}` })
+          .where(eq(products.id, returnRecord.productId))
+          .run();
 
-    if (returnRecord.status !== "pending") {
-      return NextResponse.json(
-        { success: false, message: "Retur sudah diproses sebelumnya" },
-        { status: 400 }
-      );
-    }
-
-    // Update return status
-    await db
-      .update(returns)
-      .set({
-        status: action,
-        processedBy: userId,
-        processedAt: new Date().toISOString(),
-      })
-      .where(eq(returns.id, returnId));
-
-    // If approved, adjust stock
-    if (action === "disetujui") {
-      const isSupplierReturn = returnRecord.reason.startsWith("[SUPPLIER]");
-      
-      if (isSupplierReturn) {
-        // Decrease product stock (returning back to supplier)
-        await db
-          .update(products)
-          .set({ stockQty: sql`stock_qty - ${returnRecord.quantity}` })
-          .where(eq(products.id, returnRecord.productId));
-
-        // Record stock movement OUT
-        await db.insert(stockMovements).values({
+        tx.insert(stockMovements).values({
           id: randomUUID(),
           productId: returnRecord.productId,
           type: "retur",
-          qtyChange: -returnRecord.quantity,
+          qtyChange,
           referenceId: returnId,
-        });
-      } else {
-        // Increase product stock (customer returning to us)
-        await db
-          .update(products)
-          .set({ stockQty: sql`stock_qty + ${returnRecord.quantity}` })
-          .where(eq(products.id, returnRecord.productId));
-
-        // Record stock movement IN
-        await db.insert(stockMovements).values({
-          id: randomUUID(),
-          productId: returnRecord.productId,
-          type: "retur",
-          qtyChange: returnRecord.quantity,
-          referenceId: returnId,
-        });
+        }).run();
       }
-    }
+
+      tx.update(returns)
+        .set({ status: action, processedBy: session.id, processedAt: new Date().toISOString() })
+        .where(eq(returns.id, returnId))
+        .run();
+    });
 
     return NextResponse.json({
       success: true,
-      message: action === "disetujui"
-        ? "Retur disetujui, stok telah disesuaikan"
-        : "Retur ditolak",
+      message: action === "disetujui" ? "Retur disetujui, stok telah disesuaikan" : "Retur ditolak",
     });
   } catch (error) {
-    console.error("PATCH returns API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Gagal memproses retur" },
-      { status: 500 }
-    );
+    return errorResponse(error, "Gagal memproses retur", "PATCH returns API error:");
   }
 }

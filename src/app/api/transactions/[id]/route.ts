@@ -4,12 +4,16 @@ import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, products, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireSession();
+    if (auth.error) return auth.error;
+
     const trxId = (await params).id;
     
     // Find transaction
@@ -38,6 +42,8 @@ export async function GET(
         name: products.name,
         quantity: transactionItems.quantity,
         price: transactionItems.price,
+        discount: transactionItems.discount,
+        promotionName: transactionItems.promotionName,
         subtotal: transactionItems.subtotal,
       })
       .from(transactionItems)
@@ -58,8 +64,11 @@ export async function GET(
           id: item.productId,
           name: item.name,
           qty: item.quantity,
-          price: item.price
-        }))
+          price: item.price,
+          discount: item.discount,
+          promotionName: item.promotionName,
+        })),
+        discount: itemsResult.reduce((sum, i) => sum + (i.discount || 0), 0)
       }
     });
   } catch (error) {

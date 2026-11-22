@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { db } from "@/db";
-import { categories, products, purchaseOrders, purchaseOrderItems, returns, purchaseReturns, stockMovements } from "@/db/schema";
+import { categories, products, purchaseOrders, purchaseOrderItems, returns, stockMovements, transactions } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID as uuidv4 } from "crypto";
 
 export function importCategories(tx: any, rows: Record<string, unknown>[]) {
   let added = 0;
@@ -168,46 +168,48 @@ export function importPurchaseOrders(tx: any, rows: Record<string, unknown>[], u
   return { added, updated: 0 };
 }
 
-export function importReturns(tx: any, rows: Record<string, unknown>[], userId: string) {
+/**
+ * Impor retur sebagai PENGAJUAN (status "pending") — stok baru berubah setelah disetujui di menu Retur,
+ * sama seperti retur yang dibuat lewat form. Retur pembelian disimpan di tabel returns dengan
+ * penanda "[SUPPLIER] <nama>" agar bisa disetujui/ditolak dari menu Retur.
+ * Kolom "Referensi": nomor transaksi (TRX-...) untuk retur penjualan, nama supplier untuk retur pembelian.
+ */
+export function importReturns(tx: any, rows: Record<string, unknown>[], _userId: string) {
   let added = 0;
-  
+
   for (const row of rows) {
-    const jenis = String(row["Jenis Retur"] || "").trim();
+    const jenis = String(row["Jenis Retur"] || "").trim().toLowerCase();
     const barcode = String(row["SKU/Barcode"] || "").trim();
     const qty = Number(row["Jumlah"]) || 0;
-    const ref = row["Referensi"] ? String(row["Referensi"]).trim() : null;
-    
+    const ref = row["Referensi"] ? String(row["Referensi"]).trim() : "";
+
     if (!barcode || qty <= 0) continue;
 
     const prod = tx.select().from(products).where(eq(products.barcode, barcode)).limit(1).all();
     if (prod.length === 0) continue;
-    
-    if (jenis.toLowerCase() === "pembelian") {
-      tx.insert(purchaseReturns).values({
-        id: uuidv4(),
-        returnNumber: `RTRP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        supplierName: ref || "Unknown",
-        productId: prod[0].id,
-        quantity: qty,
-        reason: "Impor data retur",
-        status: "disetujui",
-        processedBy: userId
-      }).run();
-      added++;
-    } else {
-      tx.insert(returns).values({
-        id: uuidv4(),
-        returnNumber: `RTR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        transactionId: null, // cannot map ref strictly
-        productId: prod[0].id,
-        quantity: qty,
-        reason: "Impor data retur",
-        status: "disetujui",
-        processedBy: userId
-      }).run();
-      added++;
+
+    let transactionId: string | null = null;
+    let reason = "Impor data retur";
+    if (jenis === "pembelian") {
+      reason = `[SUPPLIER] ${ref || "Tanpa nama"} | Impor data retur`;
+    } else if (ref) {
+      const trx = tx.select({ id: transactions.id }).from(transactions).where(eq(transactions.transactionNumber, ref)).limit(1).all();
+      if (trx.length > 0) transactionId = trx[0].id;
+      else reason = `Impor data retur (ref: ${ref})`;
     }
+
+    tx.insert(returns).values({
+      id: uuidv4(),
+      returnNumber: `RTR-${Date.now()}-${added}`,
+      transactionId,
+      productId: prod[0].id,
+      quantity: qty,
+      reason,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    }).run();
+    added++;
   }
-  
+
   return { added, updated: 0 };
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseExcelBuffer } from "@/lib/excel-helper";
-import { validateImportRow, ValidationError } from "@/lib/import-validator";
+import { validateImportRows, ValidationError } from "@/lib/import-validator";
 import { getSession } from "@/lib/session";
 
 export async function POST(req: Request) {
@@ -34,31 +34,15 @@ export async function POST(req: Request) {
     const previewData: Record<string, unknown>[] = [];
     const previewErrors: ValidationError[] = [];
 
-    // Check DB for barcodes if it's PO or Returns
-    const knownBarcodes = new Set<string>();
-    if (entity === "purchase-orders" || entity === "returns") {
-      const { db } = await import("@/db");
-      const { products } = await import("@/db/schema");
-      const allProducts = db.select({ barcode: products.barcode }).from(products).all();
-      allProducts.forEach(p => knownBarcodes.add(p.barcode));
-    }
+    // Aturan validasi yang sama persis dengan saat simpan (termasuk cek barcode ke database).
+    const validation = validateImportRows(entity, rows);
+    previewErrors.push(...validation.all);
 
     rows.forEach((row, index) => {
       // ExcelJS row numbering starts at 1, but header is 1, so data starts at 2
-      const rowNumber = index + 2; 
-      
-      const rowErrors = validateImportRow(entity, rowNumber, row);
-      
+      const rowNumber = index + 2;
+      const rowErrors = validation.perRow[index];
       const skuVal = String(row["SKU/Barcode"] || "").trim();
-      if ((entity === "purchase-orders" || entity === "returns") && skuVal) {
-        if (!knownBarcodes.has(skuVal)) {
-          rowErrors.push({ row: rowNumber, message: `Barang dengan barcode '${skuVal}' tidak ditemukan di database` });
-        }
-      }
-
-      if (rowErrors.length > 0) {
-        previewErrors.push(...rowErrors);
-      }
 
       // Format preview item depending on entity
       let name = "";

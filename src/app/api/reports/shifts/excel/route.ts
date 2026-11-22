@@ -5,9 +5,13 @@ import { db } from "@/db";
 import { shifts, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const allShifts = await db
       .select({
         id: shifts.id,

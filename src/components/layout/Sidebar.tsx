@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import Link from "next/link";
@@ -13,8 +11,9 @@ import {
   History, 
   Users,
   LogOut,
+  KeyRound,
   Menu,
-  Store,
+  BadgePercent,
   RotateCcw,
   Upload
 } from "lucide-react";
@@ -22,6 +21,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { Logo } from "@/components/brand/Logo";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { useRouter } from "next/navigation";
 
 const navItems = [
@@ -30,6 +30,7 @@ const navItems = [
   { name: "Manajemen Barang", href: "/products", icon: Package, roles: ["manajer"] },
   { name: "Terima Barang / PO", href: "/purchase-orders", icon: Truck, roles: ["manajer"] },
   { name: "Laporan Penjualan", href: "/reports", icon: BarChart3, roles: ["manajer"] },
+  { name: "Promo", href: "/promotions", icon: BadgePercent, roles: ["manajer"] },
   { name: "Retur Barang", href: "/returns", icon: RotateCcw, roles: ["manajer"] },
   { name: "Riwayat Transaksi", href: "/transactions", icon: History, roles: ["manajer", "kasir"] },
   { name: "Impor Data", href: "/import", icon: Upload, roles: ["manajer"] },
@@ -42,6 +43,7 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const { user } = useSession();
   const role = user?.role || "";
   const username = user?.username || "";
@@ -149,13 +151,23 @@ export function Sidebar({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="p-4 border-t">
+        <div className="p-4 border-t space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 text-slate-600 hover:text-brand-green hover:bg-brand-green/5"
+            onClick={() => setShowChangePassword(true)}
+          >
+            <KeyRound className="w-4 h-4" />
+            Ganti Password
+          </Button>
           <Button variant="outline" className="w-full justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleLogout}>
             <LogOut className="w-4 h-4" />
             Keluar
           </Button>
         </div>
       </aside>
+
+      <ChangePasswordDialog open={showChangePassword} onOpenChange={setShowChangePassword} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

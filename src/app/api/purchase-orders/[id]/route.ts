@@ -4,12 +4,16 @@ import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { purchaseOrders, purchaseOrderItems, products } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireSession } from "@/lib/api-auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const id = (await params).id;
     
     // Find PO
@@ -60,6 +64,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireSession("manajer");
+    if (auth.error) return auth.error;
+
     const id = (await params).id;
     const body = await request.json();
 

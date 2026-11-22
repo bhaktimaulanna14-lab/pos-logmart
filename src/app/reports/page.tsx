@@ -1,192 +1,226 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, DollarSign, Package, Calendar, Download } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, DollarSign, Package, Calendar, Download, Loader2, Receipt, ChevronRight,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const dataChartWeekly = [
-  { name: "Sen", sales: 0 },
-  { name: "Sel", sales: 0 },
-  { name: "Rab", sales: 0 },
-  { name: "Kam", sales: 0 },
-  { name: "Jum", sales: 0 },
-  { name: "Sab", sales: 0 },
-  { name: "Min", sales: 0 },
+type Preset = "hariIni" | "7hari" | "bulanIni" | "tahunIni";
+const PRESETS: { key: Preset; label: string }[] = [
+  { key: "hariIni", label: "Hari Ini" },
+  { key: "7hari", label: "7 Hari Terakhir" },
+  { key: "bulanIni", label: "Bulan Ini" },
+  { key: "tahunIni", label: "Tahun Ini" },
 ];
 
-const dataChartMonthly = [
-  { name: "Minggu 1", sales: 0 },
-  { name: "Minggu 2", sales: 0 },
-  { name: "Minggu 3", sales: 0 },
-  { name: "Minggu 4", sales: 0 },
-];
+type SalesData = {
+  period: { label: string };
+  summary: {
+    totalRevenue: number;
+    totalTransactions: number;
+    avgTransaction: number;
+    revenueChangePct: number | null;
+    transactionsChangePct: number | null;
+  };
+  chartData: { key: string; name: string; sales: number; count: number }[];
+};
+type TopProduct = { productId: string; name: string; qty: number; revenue: number };
+type ShiftSummary = { shiftType: string; shifts: number; totalSales: number; totalTransactions: number };
+type MovingItem = { productId: string; name: string; qty: number; perDay: number; stock?: number };
+type AttendanceRow = { userId: string; userName: string; totalShifts: number; totalWorkMs: number; avgWorkMs: number; openShifts: number };
+
+const rp = (n: number) => `Rp ${Math.round(n || 0).toLocaleString("id-ID")}`;
+const compactRp = (n: number) =>
+  n >= 1_000_000 ? `Rp ${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })}jt`
+  : n >= 1_000 ? `Rp ${Math.round(n / 1_000).toLocaleString("id-ID")}rb`
+  : `Rp ${n}`;
+
+function formatMs(ms: number) {
+  const totalMins = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  if (hours === 0 && mins === 0) return "-";
+  return `${hours} jam ${mins} menit`;
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || "Gagal memuat data");
+  return json as T;
+}
+
+function ChangeBadge({ pct }: { pct: number | null | undefined }) {
+  if (pct === null || pct === undefined) {
+    return <p className="text-xs text-slate-500 mt-1">Tidak ada data periode sebelumnya</p>;
+  }
+  const up = pct >= 0;
+  const Icon = up ? TrendingUp : TrendingDown;
+  return (
+    <p className={`text-xs font-medium flex items-center mt-1 ${up ? "text-brand-green" : "text-red-600"}`}>
+      <Icon className="w-3 h-3 mr-1" />
+      {up ? "+" : ""}{pct.toLocaleString("id-ID")}% dari periode sebelumnya
+    </p>
+  );
+}
 
 export default function ReportsPage() {
-  const [dateRange, setDateRange] = useState("7 Hari Terakhir");
+  const [preset, setPreset] = useState<Preset>("7hari");
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  
-  const dataChart = dateRange === "Bulan Ini" || dateRange === "Tahun Ini" 
-    ? dataChartMonthly 
-    : dataChartWeekly;
 
-  const totalSales = 0;
-  const totalTx = 0;
-  const avgSales = 0;
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [sales, setSales] = useState<SalesData | null>(null);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [shiftSummary, setShiftSummary] = useState<ShiftSummary[]>([]);
+  const [moving, setMoving] = useState<{ fastMoving: MovingItem[]; slowMoving: MovingItem[] }>({ fastMoving: [], slowMoving: [] });
+  const [attendance, setAttendance] = useState<AttendanceRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleDownload = () => {
-    setIsDownloading(true);
-    setTimeout(() => {
-      alert("Laporan Excel berhasil diunduh (Simulasi)");
-      setIsDownloading(false);
-    }, 2000);
-  };
-
-  const displayDateRange = showCustomDate && customStart && customEnd 
-    ? `${customStart} s/d ${customEnd}`
-    : dateRange;
-
-  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  // Query periode yang sama untuk semua API & unduhan Excel.
+  const customReady = !!(showCustomDate && customStart && customEnd);
+  const query = useMemo(
+    () => (customReady ? `startDate=${customStart}&endDate=${customEnd}` : `period=${preset}`),
+    [customReady, customStart, customEnd, preset]
+  );
 
   useEffect(() => {
-    let url = "/api/reports/attendance";
-    if (showCustomDate && customStart && customEnd) {
-      url += `?startDate=${customStart}&endDate=${customEnd}`;
-    }
-    fetch(url)
-      .then(res => res.json())
-      .then(res => {
-        if (res.success) setAttendanceData(res.data);
-      })
-      .catch(err => console.error("Failed to fetch attendance", err));
-  }, [dateRange, showCustomDate, customStart, customEnd]);
+    if (showCustomDate && !customReady) return; // tunggu kedua tanggal kustom terisi
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
 
-  const formatMs = (ms: number) => {
-    const totalMins = Math.floor(ms / 60000);
-    const hours = Math.floor(totalMins / 60);
-    const mins = totalMins % 60;
-    if (hours === 0 && mins === 0) return "-";
-    return `${hours} jam ${mins} menit`;
+    Promise.all([
+      getJson<{ data: SalesData }>(`/api/reports/sales?${query}`),
+      getJson<{ data: TopProduct[] }>(`/api/reports/top-products?${query}&limit=5`),
+      getJson<{ summary: ShiftSummary[] }>(`/api/reports/shifts?${query}`),
+      getJson<{ data: { fastMoving: MovingItem[]; slowMoving: MovingItem[] } }>(`/api/reports/stock-movements?${query}`),
+      getJson<{ data: AttendanceRow[] }>(`/api/reports/attendance?${query}`),
+    ])
+      .then(([s, t, sh, mv, at]) => {
+        if (cancelled) return;
+        setSales(s.data);
+        setTopProducts(t.data);
+        setShiftSummary(sh.summary);
+        setMoving({ fastMoving: mv.data.fastMoving, slowMoving: mv.data.slowMoving });
+        setAttendance(at.data);
+      })
+      .catch((e) => !cancelled && setError(e.message || "Gagal memuat laporan"))
+      .finally(() => !cancelled && setIsLoading(false));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query, showCustomDate, customReady]);
+
+  const download = (path: string) => {
+    window.location.href = `${path}?${query}`;
   };
+
+  const periodLabel = sales?.period.label ?? PRESETS.find((p) => p.key === preset)?.label;
+  const summary = sales?.summary;
+  const isMonthly = !!sales?.chartData[0] && sales.chartData[0].key.length === 7;
 
   return (
     <div className="p-6 md:p-10 space-y-8 max-w-6xl mx-auto bg-slate-50">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-            Laporan Penjualan
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Tinjauan performa dan analitik toko Logmart Trowono.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Laporan Penjualan</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Tinjauan performa dan analitik toko Logmart Trowono.</p>
+        </div>
+        <div className="flex gap-4 text-sm">
+          <Link href="/reports/shifts" className="inline-flex items-center gap-1 text-brand-green hover:underline">
+            Detail Shift <ChevronRight className="w-4 h-4" />
+          </Link>
+          <Link href="/reports/stock-movements" className="inline-flex items-center gap-1 text-brand-green hover:underline">
+            Pergerakan Stok <ChevronRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
 
+      {/* Filter periode */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl border shadow-sm gap-4">
-        <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {["Hari Ini", "7 Hari Terakhir", "Bulan Ini", "Tahun Ini"].map((range) => (
-            <Button 
-              key={range} 
-              variant={dateRange === range ? "default" : "outline"}
+        <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+          {PRESETS.map((p) => (
+            <Button
+              key={p.key}
+              variant={!showCustomDate && preset === p.key ? "default" : "outline"}
               onClick={() => {
-                setDateRange(range);
+                setPreset(p.key);
                 setShowCustomDate(false);
               }}
               size="sm"
               className="whitespace-nowrap shrink-0"
             >
-              {range}
+              {p.label}
             </Button>
           ))}
         </div>
         <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
           {showCustomDate && (
             <div className="flex items-center gap-2">
-              <input type="date" className="border rounded px-2 py-1 text-sm" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+              <input type="date" aria-label="Tanggal mulai" className="border rounded px-2 py-1 text-sm" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
               <span className="text-muted-foreground text-sm">-</span>
-              <input type="date" className="border rounded px-2 py-1 text-sm" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+              <input type="date" aria-label="Tanggal akhir" className="border rounded px-2 py-1 text-sm" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
             </div>
           )}
-          <Button 
-            variant={showCustomDate ? "default" : "outline"}
-            size="sm" 
-            className="flex-1 md:flex-none gap-2 shrink-0"
-            onClick={() => setShowCustomDate(!showCustomDate)}
-          >
+          <Button variant={showCustomDate ? "default" : "outline"} size="sm" className="gap-2 shrink-0" onClick={() => setShowCustomDate(!showCustomDate)}>
             <Calendar className="w-4 h-4 shrink-0" />
-            <span className="truncate">Kustom</span>
+            Kustom
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1 md:flex-none gap-2 text-green-700 hover:text-green-800 hover:bg-green-50 border-green-200" 
-            onClick={handleDownload}
-            disabled={isDownloading}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-brand-green hover:bg-brand-green/5 border-brand-green/30"
+            onClick={() => download("/api/reports/sales/excel")}
+            disabled={showCustomDate && !customReady}
           >
             <Download className="w-4 h-4 shrink-0" />
-            <span className="truncate">{isDownloading ? "Memproses..." : "Unduh Lap. Penjualan"}</span>
+            Unduh Lap. Penjualan
           </Button>
         </div>
       </div>
 
+      {showCustomDate && !customReady && (
+        <p className="text-sm text-slate-500 -mt-4">Pilih tanggal mulai dan tanggal akhir untuk menampilkan laporan kustom.</p>
+      )}
+      {error && <div className="p-3 rounded-md border border-red-200 bg-red-50 text-sm text-red-700">{error}</div>}
+
+      {/* Ringkasan */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card className="border-l-4 border-l-brand-green">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Pendapatan
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-sm font-medium">Total Pendapatan</CardTitle>
+            <DollarSign className="h-4 w-4 text-brand-green" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Rp {totalSales.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-green-600 font-medium flex items-center mt-1">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              +12.5% dari periode lalu
-            </p>
+            <div className="text-2xl font-bold">{isLoading ? "…" : rp(summary?.totalRevenue ?? 0)}</div>
+            {!isLoading && <ChangeBadge pct={summary?.revenueChangePct} />}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-brand-orange-light">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Transaksi
-            </CardTitle>
-            <Package className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-sm font-medium">Total Transaksi</CardTitle>
+            <Receipt className="h-4 w-4 text-brand-orange" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalTx.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-green-600 font-medium flex items-center mt-1">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              +5% dari periode lalu
-            </p>
+            <div className="text-2xl font-bold">{isLoading ? "…" : (summary?.totalTransactions ?? 0).toLocaleString("id-ID")}</div>
+            {!isLoading && <ChangeBadge pct={summary?.transactionsChangePct} />}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-l-4 border-l-brand-green-light">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Rata-rata Penjualan
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-sm font-medium">Rata-rata Penjualan</CardTitle>
+            <TrendingUp className="h-4 w-4 text-brand-green-light" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Rp {avgSales.toLocaleString("id-ID")}</div>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Per transaksi
-            </p>
+            <div className="text-2xl font-bold">{isLoading ? "…" : rp(summary?.avgTransaction ?? 0)}</div>
+            <p className="text-xs text-slate-500 font-medium mt-1">Per transaksi</p>
           </CardContent>
         </Card>
       </div>
@@ -194,36 +228,29 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Grafik Penjualan ({displayDateRange})</CardTitle>
-            <CardDescription>
-              Tren pendapatan harian selama periode terpilih.
-            </CardDescription>
+            <CardTitle>Grafik Penjualan ({periodLabel})</CardTitle>
+            <CardDescription>Pendapatan {isMonthly ? "bulanan" : "harian"} selama periode terpilih (WIB).</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dataChart}>
-                <defs><linearGradient id="brandOrangeBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F7931E" /><stop offset="100%" stopColor="#F15A24" /></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12 }}
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(val) => `Rp ${val / 1000000}M`}
-                  tick={{ fontSize: 12 }}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [`Rp ${value.toLocaleString("id-ID")}`, "Pendapatan"]}
-                  cursor={{ fill: "rgba(0,0,0,0.05)" }}
-                />
-                <Bar dataKey="sales" fill="url(#brandOrangeBar)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center text-slate-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sales?.chartData ?? []}>
+                  <defs>
+                    <linearGradient id="brandOrangeBar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#F7931E" />
+                      <stop offset="100%" stopColor="#F15A24" />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={compactRp} tick={{ fontSize: 12 }} width={80} />
+                  <Tooltip formatter={(value) => [rp(Number(value)), "Pendapatan"]} cursor={{ fill: "rgba(0,0,0,0.05)" }} />
+                  <Bar dataKey="sales" fill="url(#brandOrangeBar)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -233,25 +260,36 @@ export default function ReportsPage() {
               <CardTitle>Barang Terlaris</CardTitle>
               <CardDescription>Berdasarkan kuantitas terjual.</CardDescription>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-green-700 hover:text-green-800 hover:bg-green-50"
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-brand-green hover:bg-brand-green/5"
               title="Unduh Produk Terlaris"
-              onClick={handleDownload}
+              onClick={() => download("/api/reports/top-products/excel")}
             >
               <Download className="h-4 w-4" />
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[]}
-              {/* Empty state for now since DB is empty */}
+            {topProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground">
                 <Package className="w-8 h-8 mb-2 text-slate-300" />
-                <span>Belum ada data penjualan</span>
+                <span>{isLoading ? "Memuat..." : "Belum ada penjualan pada periode ini"}</span>
               </div>
-            </div>
+            ) : (
+              <ol className="space-y-3">
+                {topProducts.map((p, i) => (
+                  <li key={p.productId} className="flex items-center gap-3">
+                    <span className="w-6 h-6 shrink-0 rounded-full bg-brand-green/10 text-brand-green text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{p.name}</div>
+                      <div className="text-xs text-slate-500">{rp(p.revenue)}</div>
+                    </div>
+                    <span className="text-sm font-semibold">{p.qty.toLocaleString("id-ID")}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -260,30 +298,34 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Performa Shift Kasir</CardTitle>
-            <CardDescription>Perbandingan penjualan harian per shift.</CardDescription>
+            <CardDescription>Shift Pagi dibuka 06.00–14.59 WIB, sisanya Shift Malam.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center bg-brand-green/5 p-4 rounded-lg border border-brand-green/30">
-                <div>
-                  <div className="font-semibold text-brand-green-dark">Shift Pagi</div>
-                  <div className="text-sm text-brand-green">07:00 - 15:00</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-lg text-brand-green-dark">Rp 0</div>
-                  <div className="text-xs text-brand-green">0 transaksi</div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center bg-brand-orange-light/5 p-4 rounded-lg border border-brand-orange-light/30">
-                <div>
-                  <div className="font-semibold text-orange-900">Shift Malam</div>
-                  <div className="text-sm text-brand-orange">15:00 - 23:00</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-lg text-orange-900">Rp 0</div>
-                  <div className="text-xs text-brand-orange">0 transaksi</div>
-                </div>
-              </div>
+              {(shiftSummary.length
+                ? shiftSummary
+                : [
+                    { shiftType: "Shift Pagi", shifts: 0, totalSales: 0, totalTransactions: 0 },
+                    { shiftType: "Shift Malam", shifts: 0, totalSales: 0, totalTransactions: 0 },
+                  ]
+              ).map((s) => {
+                const pagi = s.shiftType === "Shift Pagi";
+                return (
+                  <div
+                    key={s.shiftType}
+                    className={`flex justify-between items-center p-4 rounded-lg border ${pagi ? "bg-brand-green/5 border-brand-green/30" : "bg-brand-orange-light/5 border-brand-orange-light/30"}`}
+                  >
+                    <div>
+                      <div className={`font-semibold ${pagi ? "text-brand-green-dark" : "text-orange-900"}`}>{s.shiftType}</div>
+                      <div className={`text-sm ${pagi ? "text-brand-green" : "text-brand-orange"}`}>{s.shifts} shift</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-bold text-lg ${pagi ? "text-brand-green-dark" : "text-orange-900"}`}>{rp(s.totalSales)}</div>
+                      <div className={`text-xs ${pagi ? "text-brand-green" : "text-brand-orange"}`}>{s.totalTransactions.toLocaleString("id-ID")} transaksi</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -291,62 +333,56 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Pergerakan Barang</CardTitle>
-            <CardDescription>Indikator perputaran stok barang.</CardDescription>
+            <CardDescription>Rata-rata terjual per hari pada periode ini.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="space-y-2 border-b pb-3">
-                <div className="font-semibold text-green-700 flex items-center">
-                  Cepat Terjual (Fast-Moving)
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Indomie Goreng</span>
-                  <span className="font-medium">102 / hari</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Telur Ayam 1kg</span>
-                  <span className="font-medium">85 / hari</span>
-                </div>
+                <div className="font-semibold text-brand-green">Cepat Terjual (Fast-Moving)</div>
+                {moving.fastMoving.length === 0 ? (
+                  <div className="text-sm text-slate-500">{isLoading ? "Memuat..." : "Belum ada penjualan."}</div>
+                ) : (
+                  moving.fastMoving.map((m) => (
+                    <div key={m.productId} className="flex justify-between gap-2 text-sm">
+                      <span className="truncate">{m.name}</span>
+                      <span className="font-medium shrink-0">{m.perDay.toLocaleString("id-ID")} / hari</span>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="space-y-2 pt-1">
-                <div className="font-semibold text-red-700 flex items-center">
-                  Lambat Terjual (Slow-Moving)
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Pewangi Ruangan</span>
-                  <span className="font-medium">2 / hari</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Semir Sepatu Hitam</span>
-                  <span className="font-medium">1 / hari</span>
-                </div>
+                <div className="font-semibold text-red-700">Lambat Terjual (Slow-Moving)</div>
+                <p className="text-xs text-slate-500">Barang aktif yang masih ada stok dengan penjualan paling sedikit.</p>
+                {moving.slowMoving.map((m) => (
+                  <div key={m.productId} className="flex justify-between gap-2 text-sm">
+                    <span className="truncate">{m.name}</span>
+                    <span className="font-medium shrink-0">{m.perDay.toLocaleString("id-ID")} / hari · stok {m.stock}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* REKAP ABSENSI KASIR SECTION */}
+      {/* Rekap absensi (dari buka/tutup shift) */}
       <div className="pt-6 border-t mt-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">Rekap Absensi Kasir</h2>
-            <p className="text-muted-foreground text-sm mt-1">Laporan jam kerja kasir berdasarkan aktivitas shift ({displayDateRange}).</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              Jam kerja kasir dari buka–tutup shift ({periodLabel}). Shift yang masih berjalan dihitung sampai sekarang.
+            </p>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1 md:flex-none gap-2 text-green-700 hover:text-green-800 hover:bg-green-50 border-green-200" 
-            onClick={() => {
-              const url = new URL("/api/reports/attendance/excel", window.location.origin);
-              if (showCustomDate && customStart) url.searchParams.set("startDate", customStart);
-              if (showCustomDate && customEnd) url.searchParams.set("endDate", customEnd);
-              
-              window.location.href = url.toString();
-            }}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-brand-green hover:bg-brand-green/5 border-brand-green/30"
+            onClick={() => download("/api/reports/attendance/excel")}
+            disabled={showCustomDate && !customReady}
           >
             <Download className="w-4 h-4 shrink-0" />
-            <span className="truncate">Unduh Rekap Absensi</span>
+            Unduh Rekap Absensi
           </Button>
         </div>
 
@@ -366,15 +402,24 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {attendanceData.length === 0 ? (
-                    <tr className="hover:bg-slate-50/50">
-                      <td className="px-6 py-4 text-center text-muted-foreground" colSpan={4}>Tidak ada data absensi untuk periode ini</td>
+                  {attendance.length === 0 ? (
+                    <tr>
+                      <td className="px-6 py-4 text-center text-muted-foreground" colSpan={4}>
+                        {isLoading ? "Memuat..." : "Tidak ada data absensi untuk periode ini"}
+                      </td>
                     </tr>
                   ) : (
-                    attendanceData.map((item, i) => (
-                      <tr key={i} className="hover:bg-slate-50/50">
+                    attendance.map((item) => (
+                      <tr key={item.userId} className="hover:bg-slate-50/50">
                         <td className="px-6 py-4 font-medium text-slate-900">{item.userName}</td>
-                        <td className="px-6 py-4">{item.totalShifts} shift</td>
+                        <td className="px-6 py-4">
+                          {item.totalShifts} shift
+                          {item.openShifts > 0 && (
+                            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-brand-green/10 px-2 py-0.5 text-xs text-brand-green">
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" /> sedang berjalan
+                            </span>
+                          )}
+                        </td>
                         <td className="px-6 py-4">{formatMs(item.totalWorkMs)}</td>
                         <td className="px-6 py-4">{formatMs(item.avgWorkMs)}</td>
                       </tr>
@@ -386,7 +431,6 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </div>
-
     </div>
   );
 }

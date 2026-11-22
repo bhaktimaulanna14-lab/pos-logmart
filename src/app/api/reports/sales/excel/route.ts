@@ -1,10 +1,9 @@
-/* eslint-disable */
-// @ts-nocheck
 import { getSession } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { transactions, shifts, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { transactions, users } from "@/db/schema";
+import { eq, desc, and, gte, lt } from "drizzle-orm";
+import { resolvePeriod } from "@/lib/report-period";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
 
 export async function GET(request: NextRequest) {
@@ -14,6 +13,9 @@ export async function GET(request: NextRequest) {
     if (role !== "manajer" && role !== "admin") {
       return NextResponse.json({ success: false, message: "Akses ditolak" }, { status: 403 });
     }
+
+    // Periode sama dengan halaman Laporan (?period= atau ?startDate=&endDate=, WIB).
+    const period = resolvePeriod(request.nextUrl.searchParams);
 
     // Ambil data transaksi
     const salesData = await db
@@ -27,8 +29,9 @@ export async function GET(request: NextRequest) {
       })
       .from(transactions)
       .leftJoin(users, eq(transactions.userId, users.id))
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)))
       .orderBy(desc(transactions.transactionTime))
-      .limit(1000); // Batasi untuk menghindari file terlalu besar
+      .limit(20000); // pengaman ukuran file
 
     // Format for Excel
     const columns = [
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Laporan Penjualan", columns, data);
     const filename = generateExcelFilename("Laporan_Penjualan");
 
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
