@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PlusCircle, Search, Edit, Trash2, AlertCircle, Printer, Loader2, Package } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, AlertCircle, Printer, Loader2, Package, Download } from "lucide-react";
 
 type Product = {
   id: string;
@@ -320,7 +320,7 @@ export default function ProductsPage() {
         Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalProducts)} dari{" "}
         {totalProducts.toLocaleString("id-ID")} barang
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage(1)}>« Awal</Button>
         <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage((p) => p - 1)}>‹ Sebelumnya</Button>
         <span className="px-2 whitespace-nowrap">Hal. {page} / {totalPages}</span>
@@ -332,13 +332,13 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Manajemen Barang</h1>
           <p className="text-muted-foreground">Kelola daftar barang, harga, dan stok toko.</p>
         </div>
-        
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
           {selectedProducts.size > 0 && (
             <>
               <Button variant="secondary" className="flex items-center gap-2" onClick={() => setIsPreviewDialogOpen(true)}>
@@ -368,6 +368,20 @@ export default function ProductsPage() {
               </Dialog>
             </>
           )}
+
+          {/* Unduh stok (Excel), mengikuti filter cari & kategori yang aktif */}
+          <Button
+            variant="outline"
+            className="gap-2 text-brand-green hover:bg-brand-green/5 border-brand-green/30"
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (searchTerm) params.set("q", searchTerm);
+              if (categoryFilter && categoryFilter !== "all") params.set("categoryId", categoryFilter);
+              window.location.href = `/api/products/excel?${params.toString()}`;
+            }}
+          >
+            <Download className="w-4 h-4" /> Unduh Stok
+          </Button>
 
           {/* Manage Categories */}
           <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
