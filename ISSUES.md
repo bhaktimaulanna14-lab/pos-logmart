@@ -49,7 +49,14 @@ Dibuat: 2026-11-22. Centang `[x]` setelah item selesai **dan sudah diverifikasi*
   - **B8:** langkah keamanan ditulis di `DEPLOY.md` (JWT_SECRET acak, ganti password bawaan lewat fitur B16). **Belum dilakukan di VPS.**
   - **B6 sebagian:** `@ts-nocheck` dihapus dari ±20 file yang disentuh dan semua error tipenya diperbaiki (`tsc` 0 error). Sisa: 30 file lain masih memakai pragma, dan ESLint melaporkan pola `react-hooks/set-state-in-effect` (setState di dalam useEffect untuk fetch data) di hampir semua halaman — perlu refactor pola pengambilan data, dikerjakan terpisah.
 - **Fitur tambahan (23 Nov 2026): Unduh Stok (Excel)** di Manajemen Barang → `GET /api/products/excel` (khusus manajer; ikut filter cari & kategori). Kolom: barcode, nama, kategori, harga modal, harga jual, stok, stok minimum, status stok (Aman/Menipis/Habis/Minus), nilai stok (modal × stok, stok minus dihitung 0), status barang, plus baris TOTAL. Diuji: 2.158 barang & nilai stok Rp 73.415.551 cocok dengan DB, filter kategori/cari cocok, kasir 403. Header & tombol halaman Manajemen Barang kini tidak melebar di layar HP.
-- **Sisa pekerjaan:** deploy (ikuti `DEPLOY.md` → "Update ke Versi Perbaikan"), jalankan B19 & B8 di VPS, uji cetak struk di printer thermal 58 mm toko, lalu B6 lanjutan.
+- **DEPLOY PRODUKSI (23 Nov 2026, ±13.15 WIB) — selesai:** VPS `/var/www/pos-logmart` dari `6a84c8b` → `c47b62f`.
+  - Uji dulu di salinan DB terbaru dari VPS: migrasi aman (3.445 transaksi / 6.781 rincian / Rp 62.952.400 tetap sama), regresi 49/49, 24/24, 28/28, 21/22 (1 = bug skrip uji, bukan app).
+  - Di VPS: `pm2 stop` → backup `/root/db-backup/sqlite.db.2026-11-23-0615` (integrity ok) → `git pull` + `npm install` → `scripts/migrate-2026-11.js` → `scripts/fix-production-data.js --apply` (**B19**: 1.780 transaksi dipindah dari Budi ke Siti, sisa 0) → `npm run build` → app jalan lagi via `pm2 startOrRestart ecosystem.config.js --update-env` + `pm2 save`.
+  - **B8:** `JWT_SECRET` produksi ternyata masih placeholder publik → diganti secret acak 96 karakter di `ecosystem.config.js` VPS (tidak di-commit; backup file lama di `/root/db-backup/ecosystem.config.js.bak`). Semua user harus login ulang sekali.
+  - Smoke test: `/login` 200 (lokal & `https://logmarttrowono.web.id`), API tanpa login 401, DB mode WAL, port 3000 tertutup dari luar. File sisa `sqlite-copy.db` di VPS dihapus.
+  - Catatan VPS: app & file dimiliki root (PM2 jalan sebagai root), `package-lock.json` di VPS berubah lokal (biarkan; tidak bentrok selama upstream tidak mengubahnya). Log error berisi ratusan "Server Reference ID ... Received "x"" dari bot pemindai sebelum deploy — app tidak memakai server actions, abaikan.
+  - **Rollback** (bila perlu): `sudo pm2 stop logmart-pos` → `sudo git checkout 6a84c8b` → salin backup ke `sqlite.db` (hapus `sqlite.db-wal`/`-shm`) → `sudo npm run build` → `sudo pm2 restart logmart-pos`.
+- **Sisa pekerjaan:** ganti password bawaan (`admin123`/`kasir123`) lewat menu Ganti Password & Pengguna, uji cetak struk di printer thermal 58 mm toko, stok opname 63 barang stok minus, temuan review no. 2–14, lalu B6 lanjutan.
 
 ## Catatan rebrand tampilan (commit `2f8bd10`, 22 Nov 2026)
 Frontend sudah dirombak secara **visual**: warna brand hijau `#8DC63F→#009245` dan oranye `#F7931E→#F15A24` sebagai token di `src/app/globals.css` (`--brand-*`, utilitas `bg-brand-gradient`, `bg-brand-orange-gradient`, `bg-brand-stripe`, `text-brand-gradient`), komponen logo `src/components/brand/Logo.tsx`, favicon `src/app/icon.svg`, Sidebar dan halaman login baru, serta font Montserrat (`font-brand`).
@@ -243,7 +250,7 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 - **File:** `src/app/layout.tsx`. Title "Create Next App" diganti "Logmart POS" dengan deskripsi yang sesuai, dan `lang="en"` diganti `lang="id"`.
 - **Selesai** di commit `2f8bd10` (rebrand): title "LOGMart POS", deskripsi "Solusi Belanja Murah", `lang="id"`. Terverifikasi di browser lokal. Perlu deploy ulang agar tampil di produksi.
 
-### - [ ] B8. Secret dan kredensial default — P2
+### - [x] B8. Secret dan kredensial default — P2
 - `ecosystem.config.js`: `JWT_SECRET` masih placeholder. Pindahkan ke environment server dan jangan di-commit.
 - README dan seed memakai password default (`admin123`, `kasir123`). Wajibkan ganti password setelah deploy. **Catatan:** saat ini aplikasi **tidak punya fitur ubah atau reset password** (lihat B16), jadi fitur itu harus dibuat dulu.
 
@@ -318,7 +325,7 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 - `PUT /api/products/:id` dengan `stockQty` langsung menimpa stok tanpa baris `stock_movements` (`penyesuaian`), sehingga laporan pergerakan stok tidak cocok dengan stok sebenarnya.
 - **Perbaikan:** saat stok berubah, catat selisihnya sebagai `penyesuaian` beserta user dan alasan.
 
-### - [ ] B19. Perbaikan data produksi yang sudah salah — P1 (setelah B1 & B13 diperbaiki)
+### - [x] B19. Perbaikan data produksi yang sudah salah — P1 (setelah B1 & B13 diperbaiki)
 - **Transaksi atas nama Budi:** perbaiki `transactions.user_id` mengikuti pemilik shift-nya (`UPDATE transactions SET user_id = (SELECT user_id FROM shifts WHERE shifts.id = transactions.shift_id)`). Konfirmasi dulu ke pemilik toko bahwa pemilik shift = kasir yang melayani.
 - **61 barang stok minus:** lakukan stok opname dan koreksi lewat penyesuaian stok (B18).
 - Jalankan di salinan dulu, cek hasilnya, **backup database produksi**, baru terapkan di VPS.
