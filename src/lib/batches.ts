@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { productBatches } from "@/db/schema";
+import { productBatches, products } from "@/db/schema";
 import { toStoreDate } from "@/lib/report-period";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -34,8 +34,16 @@ export function consumeBatches(tx: Tx, productId: string, qty: number) {
   }
 }
 
-/** Tambah stok bertanggal; digabung ke batch bertanggal sama bila sudah ada. */
+/**
+ * Tambah stok bertanggal; digabung ke batch bertanggal sama bila sudah ada.
+ * Dipanggil SETELAH stok produk diperbarui. Jumlahnya dibatasi agar total batch tidak melebihi stok
+ * (mis. stok −5 lalu terima 10 → stok 5, yang dicatat bertanggal hanya 5).
+ */
 export function addBatch(tx: Tx, productId: string, expiryDate: string, qty: number, source: "manual" | "po", referenceId: string | null = null) {
+  const room = tx.select({
+    n: sql<number>`max(${products.stockQty}, 0) - coalesce((select sum(remaining_qty) from product_batches where product_id = ${productId}), 0)`,
+  }).from(products).where(eq(products.id, productId)).get();
+  qty = Math.min(qty, Number(room?.n ?? 0));
   if (qty <= 0) return;
   const same = tx.select({ id: productBatches.id }).from(productBatches)
     .where(and(eq(productBatches.productId, productId), eq(productBatches.expiryDate, expiryDate))).get();
