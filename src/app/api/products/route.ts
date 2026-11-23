@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     const price = toInt(body.price, 0);
     const cost = toInt(body.cost, 0);
     const stockQty = toInt(body.stockQty ?? 0, 0);
-    const minStock = toInt(body.minStock ?? 0, 0);
+    const minStock = toInt(body.minStock ?? 1, 0);
     if (price === null || cost === null) throw new ApiError(400, "Harga jual dan harga modal harus angka 0 atau lebih");
     if (stockQty === null || minStock === null) throw new ApiError(400, "Stok dan stok minimum harus angka 0 atau lebih");
 

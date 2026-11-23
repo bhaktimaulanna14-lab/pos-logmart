@@ -90,6 +90,7 @@ export function importProducts(tx: any, rows: Record<string, unknown>[]) {
         price,
         cost,
         stockQty,
+        minStock: 1,
       }).run();
       added++;
     }

@@ -518,7 +518,7 @@ export default function ProductsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="minStock">Stok Minimum</Label>
-                    <Input id="minStock" name="minStock" type="number" min="0" defaultValue={editingProduct?.minStock ?? 5} required />
+                    <Input id="minStock" name="minStock" type="number" min="0" defaultValue={editingProduct?.minStock ?? 1} required />
                   </div>
                 </div>
                 <DialogFooter>
