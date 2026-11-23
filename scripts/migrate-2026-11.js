@@ -91,6 +91,9 @@ db.transaction(() => {
       )`);
   }
 
+  // 3d. Catat stok bertanggal yang terpakai per item, agar pembatalan bisa mengembalikan tanggalnya
+  if (!hasColumn("transaction_items", "batch_usage")) run("tambah kolom transaction_items.batch_usage", "ALTER TABLE transaction_items ADD batch_usage text");
+
   // 4. Index (mempercepat laporan, pencarian, dan kasir)
   const indexes = [
     "CREATE UNIQUE INDEX IF NOT EXISTS purchase_returns_return_number_unique ON purchase_returns (return_number)",

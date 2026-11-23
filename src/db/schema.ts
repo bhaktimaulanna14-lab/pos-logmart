@@ -97,6 +97,8 @@ export const transactionItems = sqliteTable("transaction_items", {
   promotionId: text("promotion_id"),
   promotionName: text("promotion_name"),
   subtotal: integer("subtotal").notNull(),
+  /** Stok bertanggal yang terpakai (JSON [{ expiryDate, qty, source }]); dikembalikan bila transaksi dibatalkan. */
+  batchUsage: text("batch_usage"),
 }, (t) => [
   index("transaction_items_trx_idx").on(t.transactionId),
   index("transaction_items_product_idx").on(t.productId),

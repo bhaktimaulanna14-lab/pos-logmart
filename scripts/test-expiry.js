@@ -81,10 +81,10 @@ function client(cookie) {
   check("FIFO: tanggal terdekat habis dulu", (await bstr()) === "2099-12-31:2:manual", await bstr());
   r = await kasir.patch(`/api/transactions/${r.json.data.id}`, { reason: "uji batal" });
   check("batalkan transaksi", r.status === 200, r.json?.message);
-  check("pembatalan tidak menambah batch", (await bstr()) === "2099-12-31:2:manual" && (await stock()) === s0, `${await bstr()} stok ${await stock()}`);
+  check("pembatalan mengembalikan tanggal yang terpakai", (await bstr()) === "2020-01-01:2:manual,2099-12-31:3:manual" && (await stock()) === s0, `${await bstr()} stok ${await stock()}`);
   r = await mgr.put(`/api/products/${P.id}`, { stockQty: s0 - 1 });
   check("koreksi stok turun 1", r.status === 200, r.json?.message);
-  check("batch ikut berkurang", (await bstr()) === "2099-12-31:1:manual", await bstr());
+  check("batch ikut berkurang (FIFO)", (await bstr()) === "2020-01-01:1:manual,2099-12-31:3:manual", await bstr());
 
   // Penerimaan PO + retur ke supplier
   r = await mgr.post("/api/purchase-orders", { supplierName: "Uji Supplier", orderDate: "2026-11-23", items: [{ productId: P.id, qty: 5 }] });
@@ -94,10 +94,10 @@ function client(cookie) {
   check("terima PO dengan bulan 13 ditolak", r.status === 400, r.json?.message);
   r = await mgr.post("/api/purchase-orders/receive", { poId, receivedItems: [{ productId: P.id, qty: 5, expiryDate: "2030-06-01" }] });
   check("terima PO + kadaluarsa", r.status === 200, r.json?.message);
-  check("batch PO tercatat", (await bstr()) === "2030-06-01:5:po,2099-12-31:1:manual", await bstr());
+  check("batch PO tercatat", (await bstr()) === "2020-01-01:1:manual,2030-06-01:5:po,2099-12-31:3:manual", await bstr());
   r = await mgr.post("/api/returns/purchase", { supplierName: "Uji Supplier", productId: P.id, quantity: 2, reason: "rusak" });
   check("retur ke supplier", r.status === 200, r.json?.message);
-  check("retur memakai FIFO", (await bstr()) === "2030-06-01:3:po,2099-12-31:1:manual", await bstr());
+  check("retur memakai FIFO", (await bstr()) === "2030-06-01:4:po,2099-12-31:3:manual", await bstr());
 
   // Stok minus: batch tidak boleh melebihi stok setelah barang diterima
   const raw = new Database(file);

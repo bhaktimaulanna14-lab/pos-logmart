@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { ReceiptModal } from "@/components/ReceiptModal";
 import type { ReceiptData } from "@/components/ReceiptModal";
 import { useSession } from "@/hooks/useSession";
+import { formatExpiry, todayWib } from "@/lib/expiry";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -338,9 +339,8 @@ export default function PosPage() {
 
   const addToCart = (product: Product) => {
     // Peringatan saja (tidak memblokir): masih ada stok tercatat yang sudah lewat tanggal kadaluarsa.
-    const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
-    setExpiryWarning(product.nearestExpiry && product.nearestExpiry < today
-      ? `${product.name}: ada stok kadaluarsa (${new Date(product.nearestExpiry + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}). Cek fisik barang sebelum dijual.`
+    setExpiryWarning(product.nearestExpiry && product.nearestExpiry < todayWib()
+      ? `${product.name}: ada stok kadaluarsa (${formatExpiry(product.nearestExpiry)}). Cek fisik barang sebelum dijual.`
       : "");
     setCart((prev) => {
       const existing = prev.find((i) => i.id === product.id);

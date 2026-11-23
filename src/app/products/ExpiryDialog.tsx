@@ -8,22 +8,6 @@ import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 
 type Row = { expiryDate: string; qty: number };
 
-/** Tanggal hari ini di WIB (YYYY-MM-DD). */
-export const todayWib = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
-
-export function formatExpiry(date: string) {
-  return new Date(date + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-}
-
-/** Warna tanda kadaluarsa: merah = sudah lewat, kuning = ≤30 hari. */
-export function expiryClass(date: string) {
-  const today = todayWib();
-  const soon = new Date(Date.now() + (7 * 3_600_000) + 30 * 86_400_000).toISOString().slice(0, 10);
-  if (date < today) return "text-red-700 bg-red-50 border-red-200";
-  if (date <= soon) return "text-amber-700 bg-amber-50 border-amber-200";
-  return "text-slate-600 bg-slate-50 border-slate-200";
-}
-
 // Catat stok bertanggal kadaluarsa sebuah barang (mis. stok lama di toko). Penjualan memakai tanggal terdekat dulu.
 export function ExpiryDialog({ product, onClose, onSaved }: {
   product: { id: string; name: string } | null;

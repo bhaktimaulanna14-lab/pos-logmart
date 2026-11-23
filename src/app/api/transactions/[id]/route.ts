@@ -6,6 +6,7 @@ import { transactions, transactionItems, products, users, shifts, stockMovements
 import { eq, and, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { requireSession, ApiError, errorResponse } from "@/lib/api-auth";
+import { addBatch, type BatchUsage } from "@/lib/batches";
 
 export async function GET(
   request: NextRequest,
@@ -133,7 +134,7 @@ export async function PATCH(
       if (updated.changes !== 1) throw new ApiError(400, "Transaksi ini sudah dibatalkan");
 
       const items = tx
-        .select({ productId: transactionItems.productId, quantity: transactionItems.quantity })
+        .select({ productId: transactionItems.productId, quantity: transactionItems.quantity, batchUsage: transactionItems.batchUsage })
         .from(transactionItems)
         .where(eq(transactionItems.transactionId, trx.id))
         .all();
@@ -142,6 +143,9 @@ export async function PATCH(
           .set({ stockQty: sql`${products.stockQty} + ${item.quantity}` })
           .where(eq(products.id, item.productId))
           .run();
+        // Kembalikan tanggal kadaluarsa yang terpakai saat dijual (transaksi lama tanpa catatan: kembali tanpa tanggal).
+        const usage: BatchUsage[] = item.batchUsage ? JSON.parse(item.batchUsage) : [];
+        for (const u of usage) addBatch(tx, item.productId, u.expiryDate, u.qty, u.source, trx.id);
         tx.insert(stockMovements).values({
           id: randomUUID(),
           productId: item.productId,

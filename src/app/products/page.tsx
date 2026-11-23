@@ -18,7 +18,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PlusCircle, Search, Edit, Trash2, AlertCircle, Printer, Loader2, Package, Download, CalendarClock } from "lucide-react";
-import { ExpiryDialog, expiryClass, formatExpiry } from "./ExpiryDialog";
+import { ExpiryDialog } from "./ExpiryDialog";
+import { expiryClass, formatExpiry } from "@/lib/expiry";
 
 type Product = {
   id: string;

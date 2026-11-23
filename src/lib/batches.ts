@@ -19,19 +19,27 @@ export const storeDatePlus = (days: number) => toStoreDate(new Date(Date.now() +
 // Kolom ditulis lengkap: tanpa join, drizzle hanya menulis "id", yang di dalam subquery terbaca sebagai product_batches.id.
 export const nearestExpirySql = sql<string | null>`(select min(pb.expiry_date) from product_batches pb where pb.product_id = "products"."id")`;
 
-/** Kurangi stok bertanggal secara FIFO (kadaluarsa terdekat dulu). Dipanggil di setiap pengurangan stok. */
-export function consumeBatches(tx: Tx, productId: string, qty: number) {
+export type BatchUsage = { expiryDate: string; qty: number; source: "manual" | "po" };
+
+/**
+ * Kurangi stok bertanggal secara FIFO (kadaluarsa terdekat dulu). Dipanggil di setiap pengurangan stok.
+ * Mengembalikan tanggal yang terpakai (disimpan penjualan agar pembatalan bisa mengembalikannya).
+ */
+export function consumeBatches(tx: Tx, productId: string, qty: number): BatchUsage[] {
   let left = qty;
-  if (left <= 0) return;
+  const used: BatchUsage[] = [];
+  if (left <= 0) return used;
   const batches = tx.select().from(productBatches).where(eq(productBatches.productId, productId))
     .orderBy(asc(productBatches.expiryDate), asc(productBatches.createdAt)).all();
   for (const b of batches) {
     if (left <= 0) break;
     const take = Math.min(b.remainingQty, left);
     left -= take;
+    used.push({ expiryDate: b.expiryDate, qty: take, source: b.source === "po" ? "po" : "manual" });
     if (take === b.remainingQty) tx.delete(productBatches).where(eq(productBatches.id, b.id)).run();
     else tx.update(productBatches).set({ remainingQty: b.remainingQty - take }).where(eq(productBatches.id, b.id)).run();
   }
+  return used;
 }
 
 /**

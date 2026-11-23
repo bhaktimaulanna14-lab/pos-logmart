@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
       }).run();
 
       for (const line of lines) {
+        const usage = consumeBatches(tx, line.productId, line.qty);
         tx.insert(transactionItems).values({
           id: randomUUID(),
           transactionId: trxId,
@@ -201,12 +202,12 @@ export async function POST(request: NextRequest) {
           promotionId: line.promotionId,
           promotionName: line.promotionName,
           subtotal: line.subtotal,
+          batchUsage: usage.length ? JSON.stringify(usage) : null,
         }).run();
         tx.update(products)
           .set({ stockQty: sql`${products.stockQty} - ${line.qty}` })
           .where(eq(products.id, line.productId))
           .run();
-        consumeBatches(tx, line.productId, line.qty);
         tx.insert(stockMovements).values({
           id: randomUUID(),
           productId: line.productId,

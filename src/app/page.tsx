@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
+import { formatExpiry } from "@/lib/expiry";
 import { 
   TrendingUp,
   Receipt,
@@ -229,7 +230,7 @@ export default function Home() {
                       <div className="font-semibold text-slate-800 line-clamp-1">{item.name}</div>
                       <div className="flex items-center justify-between mt-auto">
                         <div className="text-sm">
-                          {new Date(item.expiryDate + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} · <span className="font-bold">{item.qty} pcs</span>
+                          {formatExpiry(item.expiryDate)} · <span className="font-bold">{item.qty} pcs</span>
                         </div>
                         <Badge variant={expired ? "destructive" : "secondary"} className="text-[10px] px-1.5 py-0">{expired ? "Sudah Lewat" : "Segera"}</Badge>
                       </div>

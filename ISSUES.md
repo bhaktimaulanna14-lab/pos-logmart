@@ -230,7 +230,9 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
   - badge dan filter "Kadaluarsa ≤ 30 hari" di daftar barang;
   - kartu di dashboard (`/api/dashboard/expiring`);
   - banner di kasir saat scan barang yang punya stok lewat tanggal (tidak memblokir).
-- **Batasan:** barang dari transaksi yang dibatalkan, retur pelanggan, dan koreksi stok naik kembali sebagai stok tanpa tanggal.
+- **Pembatalan transaksi** mengembalikan tanggal kadaluarsa yang terpakai saat dijual (`transaction_items.batch_usage`). Pengecualiannya transaksi yang dibuat sebelum kolom ini ada.
+- **Batasan:** retur pelanggan dan koreksi stok naik kembali sebagai stok tanpa tanggal.
+- **Deploy (kolom `batch_usage`):** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db`.
 - **Deploy:** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db` (membuat tabel `product_batches`).
 - Stok bertanggal tidak pernah melebihi stok. Contoh: stok −5 lalu terima 10 → yang bertanggal hanya 5 (`addBatch`).
 - **Tes (lokal saja):** `node scripts/test-expiry.js sqlite-prod.db`. Langkah persiapannya ada di kepala file.
