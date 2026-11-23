@@ -36,6 +36,7 @@ type Product = {
 };
 
 const PAGE_SIZE = 50;
+const STOCK_FILTER_LABEL: Record<string, string> = { all: "Semua Stok", habis: "Stok habis (≤ 0)", menipis: "Stok menipis (≤ minimum)" };
 
 type Category = {
   id: string;
@@ -51,6 +52,7 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [expiryFilter, setExpiryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
   const [expiryProduct, setExpiryProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -94,13 +96,14 @@ export default function ProductsPage() {
   }, []);
 
   // Data diambil per halaman (PAGE_SIZE barang) supaya halaman tetap ringan walau ada ribuan barang.
-  const fetchProducts = useCallback(async (search: string, catId: string, pageNum = 1, expiry = "all") => {
+  const fetchProducts = useCallback(async (search: string, catId: string, pageNum = 1, expiry = "all", stock = "all") => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE) });
       if (search) params.append("q", search);
       if (catId && catId !== "all") params.append("categoryId", catId);
       if (expiry === "soon") params.append("expiry", "soon");
+      if (stock !== "all") params.append("stock", stock);
 
       const res = await fetch(`/api/products?${params.toString()}`);
       const json = await res.json();
@@ -132,8 +135,8 @@ export default function ProductsPage() {
   }, [fetchCategories, fetchLowStockCount]);
 
   useEffect(() => {
-    fetchProducts(searchTerm, categoryFilter, page, expiryFilter);
-  }, [searchTerm, categoryFilter, page, expiryFilter, fetchProducts]);
+    fetchProducts(searchTerm, categoryFilter, page, expiryFilter, stockFilter);
+  }, [searchTerm, categoryFilter, page, expiryFilter, stockFilter, fetchProducts]);
 
   // Hanya render satu tata letak (tabel desktop ATAU kartu mobile), bukan keduanya.
   useEffect(() => {
@@ -145,7 +148,7 @@ export default function ProductsPage() {
   }, []);
 
   const refreshAfterChange = async () => {
-    await Promise.all([fetchProducts(searchTerm, categoryFilter, page), fetchLowStockCount()]);
+    await Promise.all([fetchProducts(searchTerm, categoryFilter, page, expiryFilter, stockFilter), fetchLowStockCount()]);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
@@ -375,7 +378,7 @@ export default function ProductsPage() {
             </>
           )}
 
-          {/* Unduh stok (Excel), mengikuti filter cari & kategori yang aktif */}
+          {/* Unduh stok (Excel), mengikuti filter cari, kategori & status stok yang aktif */}
           <Button
             variant="outline"
             className="gap-2 text-brand-green hover:bg-brand-green/5 border-brand-green/30"
@@ -383,6 +386,7 @@ export default function ProductsPage() {
               const params = new URLSearchParams();
               if (searchTerm) params.set("q", searchTerm);
               if (categoryFilter && categoryFilter !== "all") params.set("categoryId", categoryFilter);
+              if (stockFilter !== "all") params.set("stock", stockFilter);
               window.location.href = `/api/products/excel?${params.toString()}`;
             }}
           >
@@ -539,14 +543,15 @@ export default function ProductsPage() {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Peringatan Stok!</AlertTitle>
           <AlertDescription>
-            Terdapat {lowStockCount} barang dengan stok di bawah minimum. Silakan lakukan pemesanan ulang ke supplier.
+            Terdapat {lowStockCount} barang dengan stok di bawah minimum. Silakan lakukan pemesanan ulang ke supplier.{" "}
+            <button type="button" className="font-semibold underline" onClick={() => { setStockFilter("menipis"); setPage(1); }}>Lihat barangnya</button>
           </AlertDescription>
         </Alert>
       )}
 
       {/* Filter / Search Bar */}
-      <div className="flex items-center gap-4 py-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-4 py-4">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Cari barcode atau nama barang..."
@@ -575,6 +580,18 @@ export default function ProductsPage() {
             <SelectContent>
               <SelectItem value="all">Semua Kadaluarsa</SelectItem>
               <SelectItem value="soon">Kadaluarsa ≤ 30 hari</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-[200px]">
+          <Select value={stockFilter} onValueChange={(v) => { setStockFilter(v ?? "all"); setPage(1); }}>
+            <SelectTrigger aria-label="Filter status stok">
+              <SelectValue placeholder="Semua Stok">{(v: string) => STOCK_FILTER_LABEL[v] ?? "Semua Stok"}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(STOCK_FILTER_LABEL).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -794,7 +811,7 @@ export default function ProductsPage() {
       <ExpiryDialog
         product={expiryProduct}
         onClose={() => setExpiryProduct(null)}
-        onSaved={() => fetchProducts(searchTerm, categoryFilter, page, expiryFilter)}
+        onSaved={() => fetchProducts(searchTerm, categoryFilter, page, expiryFilter, stockFilter)}
       />
     </div>
   );

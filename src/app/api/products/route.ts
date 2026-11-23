@@ -38,6 +38,11 @@ export async function GET(request: NextRequest) {
       conditions.push(sql`${nearestExpirySql} <= ${storeDatePlus(30)}`);
     }
 
+    // ?stock=habis: stok <= 0 (termasuk minus). ?stock=menipis: stok <= stok minimum (sama dengan dashboard).
+    const stock = searchParams.get("stock");
+    if (stock === "habis") conditions.push(sql`${products.stockQty} <= 0`);
+    if (stock === "menipis") conditions.push(sql`${products.stockQty} <= ${products.minStock}`);
+
     // Pagination opsional: ?page=1&pageSize=50. Tanpa `page` = semua (perilaku lama).
     const pageParam = searchParams.get("page");
     const page = Math.max(1, Number(pageParam) || 1);

@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { products, categories, productBatches } from "@/db/schema";
-import { eq, like, or, and, asc } from "drizzle-orm";
+import { eq, like, or, and, asc, sql } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
 
@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
     const conditions = [eq(products.isActive, isActive)];
     if (q) conditions.push(or(like(products.name, `%${q}%`), eq(products.barcode, q))!);
     if (categoryId) conditions.push(eq(products.categoryId, categoryId));
+    const stock = searchParams.get("stock");
+    if (stock === "habis") conditions.push(sql`${products.stockQty} <= 0`);
+    if (stock === "menipis") conditions.push(sql`${products.stockQty} <= ${products.minStock}`);
 
     const rows = await db
       .select({
