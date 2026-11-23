@@ -29,6 +29,13 @@
       "when": 1795321223771,
       "tag": "0003_promotions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795406105397,
+      "tag": "0004_void_transactions",
+      "breakpoints": true
     }
   ]
 }

@@ -17,7 +17,7 @@ export async function GET() {
       })
       .from(transactions)
       .where(
-        sql`datetime(transaction_time, '+7 hours') >= date('now', '+7 hours', 'start of month', '-5 months')`
+        sql`datetime(transaction_time, '+7 hours') >= date('now', '+7 hours', 'start of month', '-5 months') and voided_at is null`
       )
       .groupBy(sql`strftime('%Y-%m', transaction_time, '+7 hours')`)
       .orderBy(sql`strftime('%Y-%m', transaction_time, '+7 hours') ASC`);

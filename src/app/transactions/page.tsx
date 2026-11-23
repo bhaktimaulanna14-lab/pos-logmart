@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Calendar, Eye, Printer, Loader2 } from "lucide-react";
+import { Search, Calendar, Eye, Printer, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ReceiptModal } from "@/components/ReceiptModal";
+import { useSession } from "@/hooks/useSession";
 
 type TransactionRow = {
   id: string;
@@ -17,6 +18,7 @@ type TransactionRow = {
   shiftId: string;
   cashierId: string;
   cashierName: string | null;
+  voidedAt: string | null;
 };
 
 /** Detail transaksi dari GET /api/transactions/[nomor]. `id` = nomor transaksi. */
@@ -28,6 +30,9 @@ type TransactionDetail = {
   paymentMethod: string;
   cashReceived: number;
   change: number;
+  cashierId: string;
+  voidedAt: string | null;
+  voidReason: string | null;
   items: { id: string; name: string; qty: number; price: number }[];
 };
 
@@ -36,6 +41,8 @@ const PAGE_SIZE = 50;
 const todayWib = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
 
 export default function TransactionsPage() {
+  const { user } = useSession();
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState(todayWib()); // "" = semua tanggal
@@ -80,7 +87,7 @@ export default function TransactionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, searchTerm, filterDate, filterCashier]);
+  }, [page, searchTerm, filterDate, filterCashier, reloadKey]);
 
   const [selectedTrx, setSelectedTrx] = useState<TransactionDetail | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
@@ -107,6 +114,32 @@ export default function TransactionsPage() {
       alert("Terjadi kesalahan jaringan");
     } finally {
       setIsLoadingDetail(false);
+    }
+  };
+
+  const [isVoiding, setIsVoiding] = useState(false);
+  // Kasir membatalkan transaksinya sendiri selama shift masih buka (dicek ulang di server).
+  const handleVoid = async () => {
+    if (!selectedTrx) return;
+    const reason = window.prompt(`Batalkan ${selectedTrx.id}? Stok akan dikembalikan dan uang Rp ${selectedTrx.total.toLocaleString("id-ID")} dikembalikan ke pelanggan.
+
+Alasan pembatalan:`);
+    if (reason === null) return;
+    setIsVoiding(true);
+    try {
+      const res = await fetch(`/api/transactions/${selectedTrx.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const json = await res.json();
+      if (!json.success) return alert(json.message || "Gagal membatalkan transaksi");
+      setSelectedTrx(null);
+      setReloadKey((k) => k + 1);
+    } catch {
+      alert("Terjadi kesalahan jaringan");
+    } finally {
+      setIsVoiding(false);
     }
   };
 
@@ -219,9 +252,9 @@ export default function TransactionsPage() {
                 filteredData.map((trx) => (
                   <tr key={trx.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap text-slate-600">{formatDate(trx.transactionTime)}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{trx.transactionNumber}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{trx.transactionNumber}{trx.voidedAt && <Badge variant="destructive" className="ml-2">Dibatalkan</Badge>}</td>
                     <td className="px-4 py-3 text-slate-600">{trx.cashierName || "-"}</td>
-                    <td className="px-4 py-3 font-semibold text-right">Rp {(trx.totalAmount || 0).toLocaleString("id-ID")}</td>
+                    <td className={`px-4 py-3 font-semibold text-right ${trx.voidedAt ? "line-through text-slate-400" : ""}`}>Rp {(trx.totalAmount || 0).toLocaleString("id-ID")}</td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant={trx.paymentMethod?.toLowerCase() === "tunai" ? "outline" : "secondary"} className="capitalize">
                         {trx.paymentMethod || "Tunai"}
@@ -273,7 +306,7 @@ export default function TransactionsPage() {
               <div key={trx.id} className="bg-white border rounded-lg p-4 shadow-sm flex flex-col gap-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <div className="font-bold text-slate-900">{trx.transactionNumber}</div>
+                    <div className="font-bold text-slate-900">{trx.transactionNumber}{trx.voidedAt && <Badge variant="destructive" className="ml-2">Dibatalkan</Badge>}</div>
                     <div className="text-xs text-slate-500">{formatDate(trx.transactionTime)}</div>
                   </div>
                   <Badge variant={trx.paymentMethod?.toLowerCase() === "tunai" ? "outline" : "secondary"} className="capitalize text-[10px] px-1.5 py-0">
@@ -347,7 +380,7 @@ export default function TransactionsPage() {
             <div className="space-y-4 pt-4">
               <div className="flex justify-between border-b pb-4">
                 <div>
-                  <div className="font-semibold">{selectedTrx.id}</div>
+                  <div className="font-semibold">{selectedTrx.id}{selectedTrx.voidedAt && <Badge variant="destructive" className="ml-2">Dibatalkan</Badge>}</div>
                   <div className="text-sm text-slate-500">{formatDate(selectedTrx.time)}</div>
                 </div>
                 <div className="text-right">
@@ -389,8 +422,19 @@ export default function TransactionsPage() {
                 </div>
               </div>
               
-              <div className="flex justify-end gap-2 pt-4">
+              {selectedTrx.voidedAt && (
+                <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                  Dibatalkan {formatDate(selectedTrx.voidedAt)}. Alasan: {selectedTrx.voidReason || "-"}
+                </div>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setSelectedTrx(null)}>Tutup</Button>
+                {!selectedTrx.voidedAt && user?.role === "kasir" && user.id === selectedTrx.cashierId && (
+                  <Button variant="destructive" className="gap-2" disabled={isVoiding} onClick={handleVoid}>
+                    {isVoiding ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />} Batalkan
+                  </Button>
+                )}
                 <Button className="gap-2" onClick={() => setShowReceipt(true)}>
                   <Printer className="w-4 h-4" /> Cetak Struk
                 </Button>

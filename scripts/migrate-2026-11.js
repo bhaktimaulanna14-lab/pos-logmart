@@ -72,6 +72,11 @@ db.transaction(() => {
   if (!hasColumn("transaction_items", "promotion_id")) run("tambah kolom transaction_items.promotion_id", "ALTER TABLE transaction_items ADD promotion_id text");
   if (!hasColumn("transaction_items", "promotion_name")) run("tambah kolom transaction_items.promotion_name", "ALTER TABLE transaction_items ADD promotion_name text");
 
+  // 3b. Pembatalan transaksi oleh kasir (data lama otomatis tidak batal)
+  if (!hasColumn("transactions", "voided_at")) run("tambah kolom transactions.voided_at", "ALTER TABLE transactions ADD voided_at text");
+  if (!hasColumn("transactions", "voided_by")) run("tambah kolom transactions.voided_by", "ALTER TABLE transactions ADD voided_by text REFERENCES users(id)");
+  if (!hasColumn("transactions", "void_reason")) run("tambah kolom transactions.void_reason", "ALTER TABLE transactions ADD void_reason text");
+
   // 4. Index (mempercepat laporan, pencarian, dan kasir)
   const indexes = [
     "CREATE UNIQUE INDEX IF NOT EXISTS purchase_returns_return_number_unique ON purchase_returns (return_number)",

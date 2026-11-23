@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, shifts } from "@/db/schema";
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { resolvePeriod } from "@/lib/report-period";
 
@@ -21,7 +21,7 @@ export async function GET() {
           count: sql<number>`count(*)`,
         })
         .from(transactions)
-        .where(and(gte(transactions.transactionTime, startIso), lt(transactions.transactionTime, endIso)))
+        .where(and(gte(transactions.transactionTime, startIso), lt(transactions.transactionTime, endIso), isNull(transactions.voidedAt)))
         .get();
 
     const [todayRow, monthRow] = await Promise.all([sumIn(today.startIso, today.endIso), sumIn(month.startIso, month.endIso)]);

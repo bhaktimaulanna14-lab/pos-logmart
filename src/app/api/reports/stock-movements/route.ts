@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { stockMovements, products } from "@/db/schema";
-import { and, eq, gte, lt, sql, desc, asc, gt } from "drizzle-orm";
+import { and, eq, gte, lt, sql, desc, asc, gt, inArray } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { resolvePeriod } from "@/lib/report-period";
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       .select({ productId: products.id, name: products.name, qty: soldQty })
       .from(stockMovements)
       .innerJoin(products, eq(stockMovements.productId, products.id))
-      .where(and(inPeriod, eq(stockMovements.type, "penjualan")))
+      .where(and(inPeriod, inArray(stockMovements.type, ["penjualan", "pembatalan"])))
       .groupBy(products.id)
       .orderBy(desc(soldQty))
       .limit(5);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Lambat terjual: barang aktif yang masih ada stok, dengan penjualan paling sedikit (termasuk 0).
     const soldInPeriod = sql<number>`coalesce((
       select sum(-sm.qty_change) from stock_movements sm
-      where sm.product_id = ${products.id} and sm.type = 'penjualan'
+      where sm.product_id = ${products.id} and sm.type in ('penjualan', 'pembatalan')
         and sm.created_at >= ${period.startSql} and sm.created_at < ${period.endSql}
     ), 0)`;
     const slowMoving = await db

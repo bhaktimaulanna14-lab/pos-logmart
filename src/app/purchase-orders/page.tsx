@@ -140,7 +140,10 @@ export default function PurchaseOrdersPage() {
         setOrderDate(new Date().toISOString().split('T')[0]);
         setNotes("");
         setPoItems([]);
-        alert("PO Berhasil Dibuat!");
+        // Header attachment: file terunduh tanpa meninggalkan halaman.
+        if (confirm(`PO ${json.data.poNumber} berhasil dibuat. Unduh PDF untuk diserahkan ke supplier?`)) {
+          window.location.href = new URL(`/api/purchase-orders/${json.data.id}/pdf`, window.location.origin).href;
+        }
         fetchPOs(); // Refetch the list to include the new PO
       } else {
         setErrorMessage(json.message || "Gagal membuat PO.");

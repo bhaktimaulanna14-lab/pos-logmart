@@ -205,6 +205,16 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 
 ---
 
+### - [x] F8. Pembatalan transaksi oleh kasir — P1 (diminta user, 23 Nov 2026)
+- Riwayat Transaksi → Detail → **Batalkan** (wajib alasan). `PATCH /api/transactions/[nomor]`.
+- Hanya kasir yang melayani, selama shift transaksi itu masih buka (uang dikembalikan dari laci). Setelah shift ditutup pakai menu Retur. Ditolak bila sudah ada retur.
+- Data tidak dihapus: kolom baru `transactions.voided_at/voided_by/void_reason`, stok dikembalikan dengan jejak `stock_movements.type = "pembatalan"`. Semua laporan, dashboard, ringkasan shift POS, dan retur mengabaikan transaksi batal.
+- **Deploy:** jalankan lagi `node scripts/migrate-2026-11.js sqlite.db` (menambah 3 kolom, aman diulang).
+
+### - [x] F9. Unduh PDF Purchase Order untuk supplier — P2 (diminta user, 23 Nov 2026)
+- Tombol **Unduh PDF** di detail PO, dan tawaran unduh langsung setelah PO dibuat. `GET /api/purchase-orders/[id]/pdf` (manajer saja).
+- Isi: kop toko, no. PO, tanggal, supplier, status, tabel barcode/nama/jumlah, catatan, kolom tanda tangan. Tanpa harga modal.
+
 ## B. Bug & keamanan dari review kode
 
 ### - [x] B1. Simpan transaksi tidak aman dan tidak atomik — P1

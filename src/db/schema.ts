@@ -71,6 +71,10 @@ export const transactions = sqliteTable("transactions", {
   transactionTime: text("transaction_time")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
+  /** Diisi bila transaksi dibatalkan kasir: stok dikembalikan, tidak dihitung di laporan. */
+  voidedAt: text("voided_at"),
+  voidedBy: text("voided_by").references(() => users.id),
+  voidReason: text("void_reason"),
 }, (t) => [
   index("transactions_time_idx").on(t.transactionTime),
   index("transactions_shift_idx").on(t.shiftId),
@@ -103,7 +107,7 @@ export const stockMovements = sqliteTable("stock_movements", {
   productId: text("product_id")
     .notNull()
     .references(() => products.id),
-  type: text("type").notNull(), // penjualan, penerimaan, penyesuaian
+  type: text("type").notNull(), // penjualan, pembatalan, penerimaan, penyesuaian, retur
   qtyChange: integer("qty_change").notNull(),
   referenceId: text("reference_id"), // ID transaksi / PO
   createdAt: text("created_at")

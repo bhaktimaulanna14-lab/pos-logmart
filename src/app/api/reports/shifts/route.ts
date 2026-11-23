@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { shifts, transactions, users } from "@/db/schema";
-import { and, eq, desc, gte, lt, sql } from "drizzle-orm";
+import { and, eq, desc, gte, isNull, lt, sql } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { resolvePeriod, STORE_UTC_OFFSET_HOURS } from "@/lib/report-period";
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       })
       .from(shifts)
       .innerJoin(users, eq(shifts.userId, users.id))
-      .leftJoin(transactions, eq(transactions.shiftId, shifts.id))
+      .leftJoin(transactions, and(eq(transactions.shiftId, shifts.id), isNull(transactions.voidedAt)))
       .where(period ? and(gte(shifts.openAt, period.startIso), lt(shifts.openAt, period.endIso)) : undefined)
       .groupBy(shifts.id)
       .orderBy(desc(shifts.openAt));

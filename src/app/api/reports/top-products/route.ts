@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { transactions, transactionItems, products } from "@/db/schema";
-import { and, eq, gte, lt, sql, desc } from "drizzle-orm";
+import { and, eq, gte, isNull, lt, sql, desc } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { resolvePeriod } from "@/lib/report-period";
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       .from(transactionItems)
       .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
       .innerJoin(products, eq(transactionItems.productId, products.id))
-      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)))
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso), isNull(transactions.voidedAt)))
       .groupBy(products.id)
       .orderBy(desc(qty))
       .limit(limit);

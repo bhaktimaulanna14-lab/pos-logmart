@@ -100,11 +100,12 @@ export async function POST(request: NextRequest) {
     } else if (transactionId) {
       // Retur pelanggan: transaksi boleh diisi dengan nomor (TRX-...) atau ID internal.
       const trx = await db
-        .select({ id: transactions.id })
+        .select({ id: transactions.id, voidedAt: transactions.voidedAt })
         .from(transactions)
         .where(or(eq(transactions.id, transactionId), eq(transactions.transactionNumber, String(transactionId).trim())))
         .get();
       if (!trx) throw new ApiError(404, `Transaksi "${transactionId}" tidak ditemukan`);
+      if (trx.voidedAt) throw new ApiError(400, "Transaksi ini sudah dibatalkan, tidak bisa diretur");
 
       const sold = await db
         .select({ qty: sql<number>`coalesce(sum(${transactionItems.quantity}), 0)` })

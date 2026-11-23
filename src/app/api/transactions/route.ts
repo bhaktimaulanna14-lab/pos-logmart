@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     const totalRow = await db
       .select({
         n: sql<number>`count(*)`,
-        amount: sql<number>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        amount: sql<number>`coalesce(sum(case when ${transactions.voidedAt} is null then ${transactions.totalAmount} else 0 end), 0)`,
       })
       .from(transactions)
       .where(where)
@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
         shiftId: transactions.shiftId,
         cashierId: transactions.userId,
         cashierName: users.name,
+        voidedAt: transactions.voidedAt,
       })
       .from(transactions)
       .leftJoin(users, eq(transactions.userId, users.id))

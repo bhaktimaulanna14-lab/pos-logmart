@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { transactions } from "@/db/schema";
-import { and, gte, lt, sql } from "drizzle-orm";
+import { and, gte, isNull, lt, sql } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { resolvePeriod, previousPeriod, toStoreDate } from "@/lib/report-period";
 
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const trxs = await db
       .select({ totalAmount: transactions.totalAmount, transactionTime: transactions.transactionTime })
       .from(transactions)
-      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)));
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso), isNull(transactions.voidedAt)));
 
     const prev = previousPeriod(period);
     const prevRow = await db
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         count: sql<number>`count(*)`,
       })
       .from(transactions)
-      .where(and(gte(transactions.transactionTime, prev.startIso), lt(transactions.transactionTime, prev.endIso)))
+      .where(and(gte(transactions.transactionTime, prev.startIso), lt(transactions.transactionTime, prev.endIso), isNull(transactions.voidedAt)))
       .get();
 
     // Kelompokkan per hari (atau per bulan untuk periode panjang) dalam WIB.

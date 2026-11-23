@@ -2,7 +2,7 @@ import { getSession } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { products, transactionItems, transactions } from "@/db/schema";
-import { eq, sql, desc, and, gte, lt } from "drizzle-orm";
+import { eq, sql, desc, and, gte, lt, isNull } from "drizzle-orm";
 import { resolvePeriod } from "@/lib/report-period";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       .from(transactionItems)
       .innerJoin(transactions, eq(transactionItems.transactionId, transactions.id))
       .innerJoin(products, eq(transactionItems.productId, products.id))
-      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)))
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso), isNull(transactions.voidedAt)))
       .groupBy(products.id)
       .orderBy(desc(sql`SUM(${transactionItems.quantity})`))
       .limit(50); // top 50

@@ -133,7 +133,7 @@ export default function PosPage() {
       const res = await fetch(`/api/transactions?shiftId=${shiftId}`);
       const json = await res.json();
       if (!json.success) return;
-      const txs: { totalAmount: number; paymentMethod: string }[] = json.data;
+      const txs: { totalAmount: number; paymentMethod: string; voidedAt: string | null }[] = json.data.filter((t: { voidedAt: string | null }) => !t.voidedAt);
       const totalCash = txs
         .filter((t) => t.paymentMethod === "tunai")
         .reduce((s, t) => s + t.totalAmount, 0);

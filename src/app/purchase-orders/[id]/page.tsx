@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Package, Loader2, FileDown } from "lucide-react";
 
 
 export default function PurchaseOrderDetailPage({
@@ -99,7 +99,7 @@ export default function PurchaseOrderDetailPage({
           </Link>
         </Button>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-3xl font-bold tracking-tight">{po.poNumber}</h1>
@@ -116,8 +116,15 @@ export default function PurchaseOrderDetailPage({
             </p>
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="flex items-center gap-2" asChild>
+              <a href={`/api/purchase-orders/${po.id}/pdf`}>
+                <FileDown className="w-4 h-4" />
+                Unduh PDF
+              </a>
+            </Button>
           {po.status === "dipesan" && (
-            <div className="flex gap-2">
+            <>
               <Button 
                 variant="destructive" 
                 className="flex items-center gap-2" 
@@ -145,8 +152,9 @@ export default function PurchaseOrderDetailPage({
                   Proses Penerimaan
                 </Link>
               </Button>
-            </div>
+            </>
           )}
+          </div>
         </div>
       </div>
 

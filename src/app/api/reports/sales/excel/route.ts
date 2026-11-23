@@ -2,7 +2,7 @@ import { getSession } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { transactions, users } from "@/db/schema";
-import { eq, desc, and, gte, lt } from "drizzle-orm";
+import { eq, desc, and, gte, lt, isNull } from "drizzle-orm";
 import { resolvePeriod } from "@/lib/report-period";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       })
       .from(transactions)
       .leftJoin(users, eq(transactions.userId, users.id))
-      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso)))
+      .where(and(gte(transactions.transactionTime, period.startIso), lt(transactions.transactionTime, period.endIso), isNull(transactions.voidedAt)))
       .orderBy(desc(transactions.transactionTime))
       .limit(20000); // pengaman ukuran file
 
