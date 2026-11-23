@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import { getSession } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
@@ -116,7 +114,7 @@ export async function GET(request: NextRequest) {
     
     const pdfBuffer = await pdfPromise;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

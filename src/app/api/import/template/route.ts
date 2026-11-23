@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     const buffer = await generateExcelBuffer(title, columns, []);
     const filename = generateExcelFilename(title);
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Disposition": `attachment; filename="${filename}"`,

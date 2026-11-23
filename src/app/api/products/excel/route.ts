@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Stok Barang", columns, data);
     const filename = generateExcelFilename("Stok_Barang");
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

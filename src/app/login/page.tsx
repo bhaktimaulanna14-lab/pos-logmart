@@ -1,10 +1,8 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Store, User, Lock, LogIn } from "lucide-react";
+import { User, Lock, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";

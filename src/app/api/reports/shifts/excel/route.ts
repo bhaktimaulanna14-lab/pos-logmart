@@ -1,13 +1,11 @@
-/* eslint-disable */
-// @ts-nocheck
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { shifts, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
 import { requireSession } from "@/lib/api-auth";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const auth = await requireSession("manajer");
     if (auth.error) return auth.error;
@@ -47,7 +45,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Rekap Shift Kasir", columns, data);
     const filename = generateExcelFilename("Laporan_Rekap_Shift");
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

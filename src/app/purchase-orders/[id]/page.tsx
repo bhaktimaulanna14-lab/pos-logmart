@@ -1,12 +1,10 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useConfirm } from "@/components/confirm-dialog";
 import { formatRupiah, formatTanggal } from "@/lib/format";
+import type { PurchaseOrderDetail, PurchaseOrderStatus } from "@/lib/purchase-order";
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -27,7 +25,7 @@ export default function PurchaseOrderDetailPage({
 }) {
   const unwrappedParams = use(params);
   const [confirm, confirmDialog] = useConfirm();
-  const [po, setPo] = useState<Record<string, any>>(null);
+  const [po, setPo] = useState<PurchaseOrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -66,19 +64,19 @@ export default function PurchaseOrderDetailPage({
   const totalItems = po.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const totalReceived = po.items?.reduce((sum, item) => sum + item.receivedQty, 0) || 0;
 
-  const statusVariant = {
+  const statusVariant: Record<PurchaseOrderStatus, "outline" | "secondary" | "destructive"> = {
     dipesan: "outline",
     diterima: "secondary",
     dibatalkan: "destructive"
   };
 
-  const statusClassName = {
+  const statusClassName: Record<PurchaseOrderStatus, string> = {
     dipesan: "text-yellow-700 bg-yellow-50 border-yellow-200",
     diterima: "text-green-700 bg-green-50 border-green-200",
     dibatalkan: ""
   };
 
-  const statusLabel = {
+  const statusLabel: Record<PurchaseOrderStatus, string> = {
     dipesan: "Menunggu",
     diterima: "Diterima",
     dibatalkan: "Dibatalkan"

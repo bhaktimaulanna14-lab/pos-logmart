@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid file format. Only .xlsx is supported." }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = await file.arrayBuffer();
     
     // Parse
     const rows = await parseExcelBuffer(buffer);

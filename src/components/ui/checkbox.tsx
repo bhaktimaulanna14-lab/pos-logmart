@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client"
 
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"

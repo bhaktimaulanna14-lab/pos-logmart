@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Produk Terlaris", columns, data);
     const filename = generateExcelFilename("Produk_Terlaris");
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

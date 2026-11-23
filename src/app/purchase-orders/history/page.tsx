@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { formatTanggal } from "@/lib/format";
@@ -18,9 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronRight, ChevronDown, PackageCheck, Search, Download, Loader2 } from "lucide-react";
 
+import type { PurchaseOrderDetail, PurchaseOrderItem } from "@/lib/purchase-order";
+
+// Riwayat PO: item tanpa harga modal.
+type HistoryPO = Omit<PurchaseOrderDetail, "items"> & {
+  items: Pick<PurchaseOrderItem, "id" | "productId" | "name" | "barcode" | "quantity" | "receivedQty">[];
+};
 
 export default function PurchaseOrderHistoryPage() {
-  const [receivedPOs, setReceivedPOs] = useState<Record<string, any>[]>([]);
+  const [receivedPOs, setReceivedPOs] = useState<HistoryPO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -160,12 +164,12 @@ export default function PurchaseOrderHistoryPage() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {po.items?.map((item: any) => {
+                                {po.items.map((item) => {
                                   const diff = item.receivedQty - item.quantity;
                                   return (
                                     <TableRow key={item.id}>
-                                      <TableCell className="font-medium">{item.product?.name || "-"}</TableCell>
-                                      <TableCell className="text-muted-foreground">{item.product?.barcode || "-"}</TableCell>
+                                      <TableCell className="font-medium">{item.name}</TableCell>
+                                      <TableCell className="text-muted-foreground">{item.barcode}</TableCell>
                                       <TableCell className="text-center">{item.quantity}</TableCell>
                                       <TableCell className="text-center font-bold">{item.receivedQty}</TableCell>
                                       <TableCell className="text-center">
@@ -252,13 +256,13 @@ export default function PurchaseOrderHistoryPage() {
                   
                   <div className="flex flex-col gap-2">
                     <div className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Daftar Barang</div>
-                    {po.items?.map((item: any) => {
+                    {po.items.map((item) => {
                       const diff = item.receivedQty - item.quantity;
                       return (
                         <div key={item.id} className="bg-white border rounded p-3 flex flex-col gap-2">
                           <div className="flex justify-between items-start">
-                            <div className="font-medium text-sm leading-tight text-slate-800">{item.product?.name || "-"}</div>
-                            <div className="text-xs text-slate-400 shrink-0">{item.product?.barcode || "-"}</div>
+                            <div className="font-medium text-sm leading-tight text-slate-800">{item.name}</div>
+                            <div className="text-xs text-slate-400 shrink-0">{item.barcode}</div>
                           </div>
                           <div className="flex items-center justify-between mt-1">
                             <div className="text-xs">

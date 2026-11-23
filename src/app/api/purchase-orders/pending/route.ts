@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { purchaseOrders } from "@/db/schema";

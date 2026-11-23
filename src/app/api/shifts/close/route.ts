@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
 import { shifts } from "@/db/schema";
@@ -22,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find open shift
-    let conditions = [eq(shifts.status, "buka")];
+    const conditions = [eq(shifts.status, "buka")];
     if (shiftId) {
       conditions.push(eq(shifts.id, shiftId));
     } else {

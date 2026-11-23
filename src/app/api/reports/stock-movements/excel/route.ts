@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { stockMovements, products } from "@/db/schema";
@@ -62,7 +60,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Pergerakan Stok", columns, data);
     const filename = generateExcelFilename("Laporan_Pergerakan_Stok");
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

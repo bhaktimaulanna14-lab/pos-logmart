@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
@@ -23,6 +22,7 @@ export default function ImportPage() {
   const [previewData, setPreviewData] = useState<PreviewItem[] | null>(null);
   const [previewErrors, setPreviewErrors] = useState<{row: number, message: string}[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [summary, setSummary] = useState<{ added: number; updated: number } | null>(null);
 
   // Mock processing step 2 -> 3
   const handleNextStep = async () => {
@@ -50,7 +50,7 @@ export default function ImportPage() {
         setPreviewData(json.data);
         setPreviewErrors(json.errors || []);
         setStep(3);
-      } catch (err) {
+      } catch {
         setFileError("Terjadi kesalahan jaringan.");
       } finally {
         setIsProcessing(false);
@@ -76,10 +76,9 @@ export default function ImportPage() {
           return;
         }
         
-        // Save success result in state to show in step 4
-        (window as any).importSummary = json.summary;
+        setSummary(json.summary);
         setStep(4);
-      } catch (err) {
+      } catch {
         alert("Terjadi kesalahan jaringan saat menyimpan data.");
       } finally {
         setIsProcessing(false);
@@ -318,11 +317,11 @@ export default function ImportPage() {
                 <div className="grid grid-cols-2 gap-4 mb-6 text-left">
                   <div className="bg-white p-4 rounded-lg border text-center">
                     <div className="text-sm text-slate-500 mb-1">Baris Baru</div>
-                    <div className="text-2xl font-semibold">{(window as any).importSummary?.added || 0}</div>
+                    <div className="text-2xl font-semibold">{summary?.added || 0}</div>
                   </div>
                   <div className="bg-white p-4 rounded-lg border text-center">
                     <div className="text-sm text-slate-500 mb-1">Diperbarui</div>
-                    <div className="text-2xl font-semibold text-brand-green">{(window as any).importSummary?.updated || 0}</div>
+                    <div className="text-2xl font-semibold text-brand-green">{summary?.updated || 0}</div>
                   </div>
                 </div>
                 <Button 

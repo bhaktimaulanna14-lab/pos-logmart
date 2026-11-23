@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid file format. Only .xlsx is supported." }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = await file.arrayBuffer();
     const rows = await parseExcelBuffer(buffer);
     if (rows.length === 0) {
       return NextResponse.json({ error: "File is empty or has no valid rows" }, { status: 400 });

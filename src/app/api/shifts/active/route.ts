@@ -1,12 +1,10 @@
-/* eslint-disable */
-// @ts-nocheck
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { shifts } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await getSession();
     if (!session) {

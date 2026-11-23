@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { productBatches, products } from "@/db/schema";
 import { toStoreDate } from "@/lib/report-period";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+/** Transaksi database (argumen callback db.transaction). */
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const isValidDate = (s: unknown): s is string => {
   if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;

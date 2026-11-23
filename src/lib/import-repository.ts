@@ -4,14 +4,14 @@ import { categories, productBatches, products, purchaseOrders, purchaseOrderItem
 import { eq } from "drizzle-orm";
 import { randomUUID as uuidv4 } from "crypto";
 import categoryMap from "./category-map.json";
-import { addBatch, consumeBatches, parseExpiryCell } from "@/lib/batches";
+import { addBatch, consumeBatches, parseExpiryCell, type Tx } from "@/lib/batches";
 
 // Nama kategori lama/beda ejaan dari Excel diarahkan ke kategori baku agar tidak muncul kategori dobel lagi.
 const normCat = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
 const categoryAlias = new Map(Object.entries(categoryMap).flatMap(([t, olds]) => [t, ...olds].map((o) => [normCat(o), t] as const)));
 const canonicalCategory = (name: string) => categoryAlias.get(normCat(name)) ?? name;
 
-export function importCategories(tx: any, rows: Record<string, unknown>[]) {
+export function importCategories(tx: Tx, rows: Record<string, unknown>[]) {
   let added = 0;
   for (const row of rows) {
     const name = canonicalCategory(String(row["Nama"] || "").trim());
@@ -33,7 +33,7 @@ export function importCategories(tx: any, rows: Record<string, unknown>[]) {
   return { added, updated: 0 };
 }
 
-export function importProducts(tx: any, rows: Record<string, unknown>[]) {
+export function importProducts(tx: Tx, rows: Record<string, unknown>[]) {
   let added = 0;
   let updated = 0;
 
@@ -116,7 +116,7 @@ export function importProducts(tx: any, rows: Record<string, unknown>[]) {
   return { added, updated };
 }
 
-export function importPurchaseOrders(tx: any, rows: Record<string, unknown>[], userId: string) {
+export function importPurchaseOrders(tx: Tx, rows: Record<string, unknown>[], userId: string) {
   let added = 0;
   
   const poMap = new Map<string, any>();
@@ -189,7 +189,7 @@ export function importPurchaseOrders(tx: any, rows: Record<string, unknown>[], u
  * penanda "[SUPPLIER] <nama>" agar bisa disetujui/ditolak dari menu Retur.
  * Kolom "Referensi": nomor transaksi (TRX-...) untuk retur penjualan, nama supplier untuk retur pembelian.
  */
-export function importReturns(tx: any, rows: Record<string, unknown>[], _userId: string) {
+export function importReturns(tx: Tx, rows: Record<string, unknown>[], _userId: string) {
   let added = 0;
 
   for (const row of rows) {

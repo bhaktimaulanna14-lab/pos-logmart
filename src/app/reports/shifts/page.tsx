@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { formatRupiah } from "@/lib/format";
@@ -17,29 +15,27 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+type ShiftRow = {
+  id: string;
+  userName: string | null;
+  openAt: string;
+  closeAt: string | null;
+  openingCash: number;
+  closingCash: number | null;
+  status: string;
+};
+
 export default function ShiftsReportPage() {
-  const [shiftsData, setShiftsData] = useState([]);
+  const [shiftsData, setShiftsData] = useState<ShiftRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
-    fetchShifts();
+    fetch("/api/reports/shifts")
+      .then((res) => res.json())
+      .then((json) => { if (json.success) setShiftsData(json.data); })
+      .catch((e) => console.error(e))
+      .finally(() => setIsLoading(false));
   }, []);
-
-  const fetchShifts = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch('/api/reports/shifts');
-      const json = await res.json();
-      if (json.success) {
-        setShiftsData(json.data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDownload = () => {
     window.location.href = "/api/reports/shifts/excel";
@@ -74,10 +70,9 @@ export default function ShiftsReportPage() {
           variant="outline" 
           className="gap-2 text-green-700 border-green-200 hover:bg-green-50 w-full md:w-auto"
           onClick={handleDownload}
-          disabled={isDownloading}
         >
           <Download className="w-4 h-4 shrink-0" />
-          <span className="truncate">{isDownloading ? "Memproses..." : "Unduh Excel"}</span>
+          <span className="truncate">Unduh Excel</span>
         </Button>
       </div>
 

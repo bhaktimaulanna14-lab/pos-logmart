@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Laporan Penjualan", columns, data);
     const filename = generateExcelFilename("Laporan_Penjualan");
 
-    return new NextResponse(buffer as unknown as BodyInit, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

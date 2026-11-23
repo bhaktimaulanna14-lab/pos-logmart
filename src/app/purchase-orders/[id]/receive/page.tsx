@@ -1,7 +1,6 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
+import type { PurchaseOrderDetail } from "@/lib/purchase-order";
 import { useState, use, useEffect } from "react";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
@@ -32,7 +31,7 @@ export default function ReceiveGoodsPage({
   const unwrappedParams = use(params);
   const router = useRouter();
   
-  const [po, setPo] = useState<Record<string, any>>(null);
+  const [po, setPo] = useState<PurchaseOrderDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [receivedQty, setReceivedQty] = useState<Record<string, number>>({});
@@ -50,10 +49,10 @@ export default function ReceiveGoodsPage({
           setPo(json.data);
           // Initialize form state
           setReceivedQty(
-            Object.fromEntries(json.data.items.map((item: any) => [item.id, item.quantity]))
+            Object.fromEntries((json.data as PurchaseOrderDetail).items.map((item) => [item.id, item.quantity]))
           );
           // Diisi harga modal sekarang; ubah bila harga dari supplier ini berbeda.
-          setCost(Object.fromEntries(json.data.items.map((item: any) => [item.id, String(item.cost)])));
+          setCost(Object.fromEntries((json.data as PurchaseOrderDetail).items.map((item) => [item.id, String(item.cost)])));
         }
         setIsLoading(false);
       })
@@ -87,14 +86,14 @@ export default function ReceiveGoodsPage({
     setShowConfirmWarning(false);
   };
 
-  const totalOrdered = po.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  const totalOrdered = po.items.reduce((sum, item) => sum + item.quantity, 0);
   const totalReceiving = Object.values(receivedQty).reduce((sum: number, q: number) => sum + q, 0);
 
   const itemsWithSelisih = po.items.filter(
-    (item: any) => (receivedQty[item.id] ?? item.quantity) !== item.quantity
+    (item) => (receivedQty[item.id] ?? item.quantity) !== item.quantity
   );
   const itemsZeroed = po.items.filter(
-    (item: any) => (receivedQty[item.id] ?? item.quantity) === 0
+    (item) => (receivedQty[item.id] ?? item.quantity) === 0
   );
   const hasSelisih = itemsWithSelisih.length > 0;
 
@@ -113,7 +112,7 @@ export default function ReceiveGoodsPage({
   const executeReceive = async () => {
     setIsSubmitting(true);
     try {
-      const receivedItemsPayload = po.items.map((item: any) => ({
+      const receivedItemsPayload = po.items.map((item) => ({
         productId: item.productId,
         qty: receivedQty[item.id] ?? 0,
         expiryDate: expiry[item.id] || undefined,
@@ -224,7 +223,7 @@ export default function ReceiveGoodsPage({
                    Tidak ada barang
                  </TableCell>
                </TableRow>
-            ) : po.items?.map((item: any) => {
+            ) : po.items.map((item) => {
               const received = receivedQty[item.id] ?? item.quantity;
               const diff = received - item.quantity;
               return (
@@ -284,7 +283,7 @@ export default function ReceiveGoodsPage({
           <AlertTitle>Ada Selisih pada {itemsWithSelisih.length} Barang</AlertTitle>
           <AlertDescription className="space-y-2 mt-2">
             <ul className="list-disc pl-4 text-sm space-y-1">
-              {itemsWithSelisih.map((item: any) => {
+              {itemsWithSelisih.map((item) => {
                 const received = receivedQty[item.id] ?? item.quantity;
                 const diff = received - item.quantity;
                 return (

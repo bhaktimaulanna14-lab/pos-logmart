@@ -1,13 +1,11 @@
-/* eslint-disable */
-// @ts-nocheck
 import { getSession } from "@/lib/session";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { returns, products, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     const role = session?.role;
@@ -61,7 +59,7 @@ export async function GET(request: NextRequest) {
     const buffer = await generateExcelBuffer("Laporan Retur", columns, data);
     const filename = generateExcelFilename("Laporan_Retur");
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

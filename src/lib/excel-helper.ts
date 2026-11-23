@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 import ExcelJS from "exceljs";
 
 /**
@@ -13,7 +11,7 @@ import ExcelJS from "exceljs";
 export async function generateExcelBuffer(
   title: string,
   columns: { header: string; key: string; width?: number }[],
-  data: any[]
+  data: Record<string, unknown>[]
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Logmart POS";
@@ -59,19 +57,19 @@ export function generateExcelFilename(prefix: string): string {
  * Helper untuk membaca buffer Excel dan mengembalikan array object.
  * Baris pertama dianggap sebagai header.
  *
- * @param buffer Buffer file Excel
+ * @param buffer Isi file Excel (hasil file.arrayBuffer())
  * @returns Array object mewakili baris data
  */
-export async function parseExcelBuffer(buffer: Buffer | ArrayBuffer): Promise<any[]> {
+export async function parseExcelBuffer(buffer: ArrayBuffer): Promise<Record<string, unknown>[]> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as Buffer);
+  await workbook.xlsx.load(buffer);
   
   const worksheet = workbook.worksheets[0];
   if (!worksheet) {
     throw new Error("Berkas Excel tidak memiliki sheet data.");
   }
   
-  const results: any[] = [];
+  const results: Record<string, unknown>[] = [];
   const headers: string[] = [];
   
   // Baca header (baris 1)
@@ -83,18 +81,18 @@ export async function parseExcelBuffer(buffer: Buffer | ArrayBuffer): Promise<an
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return; // Skip header
     
-    const rowData: any = {};
+    const rowData: Record<string, unknown> = {};
     let hasValue = false;
     
     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
       const header = headers[colNumber];
       if (header) {
         // exceljs bisa mengembalikan object untuk formula/rich text. Kita butuh nilai mentahnya.
-        let val = cell.value;
+        let val: unknown = cell.value;
         if (val !== null && typeof val === 'object' && 'result' in val) {
-           val = (val as any).result;
+           val = val.result;
         } else if (val !== null && typeof val === 'object' && 'text' in val) {
-           val = (val as any).text;
+           val = val.text;
         }
         
         rowData[header] = val;

@@ -1,5 +1,3 @@
-/* eslint-disable */
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
@@ -16,29 +14,26 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+type MovementRow = {
+  id: string;
+  date: string;
+  name: string;
+  type: string;
+  qtyChange: number;
+  referenceId: string | null;
+};
+
 export default function StockMovementsReportPage() {
-  const [movementsData, setMovementsData] = useState([]);
+  const [movementsData, setMovementsData] = useState<MovementRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
-    fetchMovements();
+    fetch("/api/reports/stock-movements")
+      .then((res) => res.json())
+      .then((json) => { if (json.success) setMovementsData(json.data.allMovements || []); })
+      .catch((e) => console.error(e))
+      .finally(() => setIsLoading(false));
   }, []);
-
-  const fetchMovements = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch('/api/reports/stock-movements');
-      const json = await res.json();
-      if (json.success) {
-        setMovementsData(json.data.allMovements || []);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDownload = () => {
     window.location.href = "/api/reports/stock-movements/excel";
@@ -80,10 +75,9 @@ export default function StockMovementsReportPage() {
           variant="outline" 
           className="gap-2 text-green-700 border-green-200 hover:bg-green-50 w-full md:w-auto"
           onClick={handleDownload}
-          disabled={isDownloading}
         >
           <Download className="w-4 h-4 shrink-0" />
-          <span className="truncate">{isDownloading ? "Memproses..." : "Unduh Excel"}</span>
+          <span className="truncate">Unduh Excel</span>
         </Button>
       </div>
 
