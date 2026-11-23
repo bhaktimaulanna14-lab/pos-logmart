@@ -94,6 +94,9 @@ db.transaction(() => {
   // 3d. Catat stok bertanggal yang terpakai per item, agar pembatalan bisa mengembalikan tanggalnya
   if (!hasColumn("transaction_items", "batch_usage")) run("tambah kolom transaction_items.batch_usage", "ALTER TABLE transaction_items ADD batch_usage text");
 
+  // 3e. Harga modal dari supplier per barang saat PO diterima
+  if (!hasColumn("purchase_order_items", "unit_cost")) run("tambah kolom purchase_order_items.unit_cost", "ALTER TABLE purchase_order_items ADD unit_cost integer");
+
   // 4. Index (mempercepat laporan, pencarian, dan kasir)
   const indexes = [
     "CREATE UNIQUE INDEX IF NOT EXISTS purchase_returns_return_number_unique ON purchase_returns (return_number)",

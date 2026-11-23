@@ -110,6 +110,12 @@ export default function PosPage() {
   const [pendingCustomerName, setPendingCustomerName] = useState("");
   const [isSavingPending, setIsSavingPending] = useState(false);
 
+  // Pembatalan transaksi hari ini (server mengizinkan selama shift transaksi masih buka)
+  type RecentTrx = { id: string; transactionNumber: string; transactionTime: string; totalAmount: number; cashierName: string | null; voidedAt: string | null };
+  const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [recentTrx, setRecentTrx] = useState<RecentTrx[]>([]);
+  const [voidingNumber, setVoidingNumber] = useState<string | null>(null);
+
   // ── Shift helpers ──────────────────────────────────────────────────────────
 
   const fetchActiveShift = useCallback(async () => {
@@ -338,6 +344,11 @@ export default function PosPage() {
   // ── Cart ───────────────────────────────────────────────────────────────────
 
   const addToCart = (product: Product) => {
+    // Yang memblokir hanya stok sistem <= 0 (stok minimum cuma pengingat PO).
+    if (product.stock <= 0) {
+      alert(`Stok "${product.name}" di sistem ${product.stock}. Bila barangnya ada, minta manajer mengoreksi stok di Manajemen Barang.`);
+      return;
+    }
     // Peringatan saja (tidak memblokir): masih ada stok tercatat yang sudah lewat tanggal kadaluarsa.
     setExpiryWarning(product.nearestExpiry && product.nearestExpiry < todayWib()
       ? `${product.name}: ada stok kadaluarsa (${formatExpiry(product.nearestExpiry)}). Cek fisik barang sebelum dijual.`
@@ -454,6 +465,40 @@ export default function PosPage() {
     }
   };
 
+  const openVoidDialog = async () => {
+    setShowVoidDialog(true);
+    setRecentTrx([]);
+    try {
+      const res = await fetch(`/api/transactions?date=${todayWib()}&page=1&pageSize=50`);
+      const json = await res.json();
+      if (json.success) setRecentTrx(json.data);
+    } catch (e) {
+      console.error("openVoidDialog:", e);
+    }
+  };
+
+  const handleVoidTrx = async (t: RecentTrx) => {
+    const reason = window.prompt(`Batalkan ${t.transactionNumber}? Stok dikembalikan dan uang ${formatRp(t.totalAmount)} dikembalikan ke pelanggan.
+
+Alasan pembatalan:`);
+    if (reason === null) return;
+    setVoidingNumber(t.transactionNumber);
+    try {
+      const res = await fetch(`/api/transactions/${t.transactionNumber}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const json = await res.json();
+      if (!json.success) return alert(json.message || "Gagal membatalkan transaksi");
+      setRecentTrx((list) => list.map((x) => (x.id === t.id ? { ...x, voidedAt: new Date().toISOString() } : x)));
+    } catch {
+      alert("Terjadi kesalahan jaringan");
+    } finally {
+      setVoidingNumber(null);
+    }
+  };
+
   const startNewTransaction = () => {
     setCart([]);
     setBarcodeInput("");
@@ -481,6 +526,9 @@ export default function PosPage() {
                 <span className="w-2 h-2 rounded-full bg-green-500" />
                 Shift Aktif
               </div>
+              <Button variant="outline" size="sm" className="h-8" onClick={openVoidDialog}>
+                Batalkan Transaksi
+              </Button>
               <Button
                 variant="outline" size="sm" className="h-8"
                 onClick={async () => {
@@ -655,8 +703,8 @@ export default function PosPage() {
                   {searchResults.map((product) => (
                     <Card
                       key={product.id}
-                      className={`cursor-pointer hover:border-brand-green/60 hover:shadow-md transition-colors active:scale-95 ${product.stock === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-                      onClick={() => product.stock > 0 && addToCart(product)}
+                      className={`cursor-pointer hover:border-brand-green/60 hover:shadow-md transition-colors active:scale-95 ${product.stock <= 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                      onClick={() => addToCart(product)}
                     >
                       <CardContent className="p-3 md:p-4 text-center flex flex-col h-full">
                         <div className="text-xs text-slate-400 mb-1">{product.barcode}</div>
@@ -872,6 +920,42 @@ export default function PosPage() {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setShowPendingDialog(false)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Void Dialog */}
+      <Dialog open={showVoidDialog} onOpenChange={setShowVoidDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Batalkan Transaksi</DialogTitle>
+            <DialogDescription>Transaksi hari ini. Hanya bisa dibatalkan selama shift transaksi itu masih buka.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2 max-h-[60vh] overflow-auto">
+            {recentTrx.length === 0 ? (
+              <div className="text-center text-slate-500 py-8">Belum ada transaksi hari ini.</div>
+            ) : (
+              recentTrx.map((t) => (
+                <div key={t.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border">
+                  <div>
+                    <div className="font-semibold text-slate-800">{t.transactionNumber}</div>
+                    <div className="text-xs text-slate-500">
+                      {new Date(t.transactionTime).toLocaleTimeString("id-ID")} • {t.cashierName ?? "-"} • <span className="font-medium text-slate-700">{formatRp(t.totalAmount)}</span>
+                    </div>
+                  </div>
+                  {t.voidedAt ? (
+                    <span className="text-xs font-semibold text-red-600">Dibatalkan</span>
+                  ) : (
+                    <Button variant="destructive" size="sm" disabled={voidingNumber !== null} onClick={() => handleVoidTrx(t)}>
+                      {voidingNumber === t.transactionNumber ? <Loader2 className="w-4 h-4 animate-spin" /> : "Batalkan"}
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowVoidDialog(false)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

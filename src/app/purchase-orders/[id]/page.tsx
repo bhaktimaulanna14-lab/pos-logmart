@@ -187,13 +187,14 @@ export default function PurchaseOrderDetailPage({
                 <TableHead>Barcode</TableHead>
                 <TableHead className="text-center">Qty Dipesan</TableHead>
                 <TableHead className="text-center">Qty Diterima</TableHead>
+                <TableHead className="text-right">Harga Modal</TableHead>
                 <TableHead className="text-center">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {po.items?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     <Package className="w-8 h-8 mx-auto mb-2 opacity-20" />
                     Tidak ada barang dalam PO ini
                   </TableCell>
@@ -210,6 +211,9 @@ export default function PurchaseOrderDetailPage({
                       <TableCell className="text-center">{item.quantity}</TableCell>
                       <TableCell className="text-center">
                         {item.receivedQty}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {item.unitCost == null ? "-" : `Rp ${item.unitCost.toLocaleString("id-ID")}`}
                       </TableCell>
                       <TableCell className="text-center">
                         {po.status === "dipesan" ? (

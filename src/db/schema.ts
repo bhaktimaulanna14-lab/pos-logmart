@@ -163,6 +163,8 @@ export const purchaseOrderItems = sqliteTable("purchase_order_items", {
     .references(() => products.id),
   quantity: integer("quantity").notNull(),
   receivedQty: integer("received_qty").notNull().default(0),
+  /** Harga modal per item dari supplier saat diterima (null = tidak diisi / PO lama). */
+  unitCost: integer("unit_cost"),
 });
 
 export const pendingCarts = sqliteTable("pending_carts", {

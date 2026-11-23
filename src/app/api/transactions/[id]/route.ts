@@ -115,9 +115,15 @@ export async function PATCH(
         .where(eq(transactions.transactionNumber, trxNumber))
         .get();
       if (!trx) throw new ApiError(404, "Transaksi tidak ditemukan");
-      if (trx.userId !== session.id) throw new ApiError(403, "Hanya kasir yang melayani transaksi ini yang boleh membatalkannya");
       if (trx.voidedAt) throw new ApiError(400, "Transaksi ini sudah dibatalkan");
       if (trx.shiftStatus !== "buka") throw new ApiError(400, "Shift transaksi ini sudah ditutup. Gunakan menu Retur.");
+      // Kasir mana pun yang sedang bertugas (shift buka) boleh membatalkan; pelakunya tercatat di voidedBy.
+      const ownShift = tx
+        .select({ id: shifts.id })
+        .from(shifts)
+        .where(and(eq(shifts.userId, session.id), eq(shifts.status, "buka")))
+        .get();
+      if (!ownShift) throw new ApiError(403, "Buka shift Anda terlebih dahulu untuk membatalkan transaksi");
       const hasReturn = tx
         .select({ id: returns.id })
         .from(returns)

@@ -41,54 +41,64 @@ export async function POST(request: NextRequest) {
     if (auth.error) return auth.error;
     const { session } = auth;
 
+    // items: [{ productId, quantity }] — banyak barang sekaligus ke satu supplier dengan satu alasan.
     const body = await request.json();
-    const { supplierName, productId, reason } = body;
-    const qtyNum = toInt(body.quantity, 1);
-
-    if (!String(supplierName || "").trim() || !productId || !String(reason || "").trim()) {
+    const supplierName = String(body.supplierName || "").trim();
+    const reason = String(body.reason || "").trim();
+    if (!supplierName || !reason || !Array.isArray(body.items) || body.items.length === 0) {
       throw new ApiError(400, "Data tidak lengkap (supplier, barang, dan alasan wajib diisi)");
     }
-    if (qtyNum === null) throw new ApiError(400, "Jumlah harus bilangan bulat lebih dari 0");
+    const qtyByProduct = new Map<string, number>();
+    for (const item of body.items) {
+      const qty = toInt(item?.quantity, 1);
+      if (!item?.productId || qty === null) throw new ApiError(400, "Jumlah harus bilangan bulat lebih dari 0");
+      qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + qty);
+    }
 
-    const retId = randomUUID();
-    const returnNum = `RTP-${Date.now().toString().slice(-6)}`;
+    const baseNum = `RTP-${Date.now().toString().slice(-6)}`;
+    const now = new Date().toISOString();
 
     db.transaction((tx) => {
-      const prod = tx
-        .select({ name: products.name, stockQty: products.stockQty })
-        .from(products)
-        .where(eq(products.id, productId))
-        .get();
-      if (!prod) throw new ApiError(404, "Produk tidak ditemukan");
-      if (prod.stockQty < qtyNum) {
-        throw new ApiError(400, `Stok "${prod.name}" tidak mencukupi untuk retur (tersisa ${prod.stockQty})`);
+      let n = 0;
+      for (const [productId, qtyNum] of qtyByProduct) {
+        const prod = tx
+          .select({ name: products.name, stockQty: products.stockQty })
+          .from(products)
+          .where(eq(products.id, productId))
+          .get();
+        if (!prod) throw new ApiError(404, "Produk tidak ditemukan");
+        if (prod.stockQty < qtyNum) {
+          throw new ApiError(400, `Stok "${prod.name}" tidak mencukupi untuk retur (tersisa ${prod.stockQty})`);
+        }
+        // Satu baris per barang; nomor retur unik per baris, berawalan sama.
+        const returnNum = qtyByProduct.size > 1 ? `${baseNum}-${++n}` : baseNum;
+
+        tx.insert(purchaseReturns).values({
+          id: randomUUID(),
+          returnNumber: returnNum,
+          supplierName,
+          productId,
+          quantity: qtyNum,
+          reason,
+          status: "disetujui",
+          processedBy: session.id,
+          processedAt: now,
+        }).run();
+
+        tx.update(products)
+          .set({ stockQty: sql`${products.stockQty} - ${qtyNum}` })
+          .where(eq(products.id, productId))
+          .run();
+        consumeBatches(tx, productId, qtyNum);
+
+        tx.insert(stockMovements).values({
+          id: randomUUID(),
+          productId,
+          type: "retur",
+          qtyChange: -qtyNum,
+          referenceId: returnNum,
+        }).run();
       }
-
-      tx.insert(purchaseReturns).values({
-        id: retId,
-        returnNumber: returnNum,
-        supplierName: String(supplierName).trim(),
-        productId,
-        quantity: qtyNum,
-        reason,
-        status: "disetujui",
-        processedBy: session.id,
-        processedAt: new Date().toISOString(),
-      }).run();
-
-      tx.update(products)
-        .set({ stockQty: sql`${products.stockQty} - ${qtyNum}` })
-        .where(eq(products.id, productId))
-        .run();
-      consumeBatches(tx, productId, qtyNum);
-
-      tx.insert(stockMovements).values({
-        id: randomUUID(),
-        productId,
-        type: "retur",
-        qtyChange: -qtyNum,
-        referenceId: returnNum,
-      }).run();
     });
 
     return NextResponse.json({ success: true, message: "Retur pembelian berhasil disimpan" });

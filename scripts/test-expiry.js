@@ -97,7 +97,7 @@ function client(cookie) {
   r = await mgr.post("/api/purchase-orders/receive", { poId, receivedItems: [{ productId: P.id, qty: 5, expiryDate: "2030-06-01" }] });
   check("terima PO + kadaluarsa", r.status === 200, r.json?.message);
   check("batch PO tercatat", (await bstr()) === "2020-01-01:1:manual,2030-06-01:5:po,2099-12-31:3:manual", await bstr());
-  r = await mgr.post("/api/returns/purchase", { supplierName: "Uji Supplier", productId: P.id, quantity: 2, reason: "rusak" });
+  r = await mgr.post("/api/returns/purchase", { supplierName: "Uji Supplier", items: [{ productId: P.id, quantity: 2 }], reason: "rusak" });
   check("retur ke supplier", r.status === 200, r.json?.message);
   check("retur memakai FIFO", (await bstr()) === "2030-06-01:4:po,2099-12-31:3:manual", await bstr());
 
@@ -142,6 +142,47 @@ function client(cookie) {
   check("impor: sel tanggal Excel = seluruh stok", r.status === 200 && (await bstr(Q.id)) === "2027-06-30:6:manual", `${r.status} ${await bstr(Q.id)}`);
   r = await importXlsx("", 4, "/api/import/save");
   check("impor: kolom kosong hanya FIFO stok turun", r.status === 200 && (await bstr(Q.id)) === "2027-06-30:4:manual", `${r.status} ${await bstr(Q.id)}`);
+
+  // Pembatalan oleh kasir lain
+  const kasir2 = client(await login("uji-kasir2"));
+  r = await kasir.post("/api/transactions", { items: [{ id: P.id, qty: 1 }], paymentMethod: "tunai", cashReceived: 1000000 });
+  const trx2 = r.json?.data?.id;
+  r = await kasir2.patch(`/api/transactions/${trx2}`, { reason: "uji batal kasir lain" });
+  check("kasir lain tanpa shift buka tidak boleh batal", r.status === 403, r.json?.message);
+  await kasir2.post("/api/shifts/open", { openingCash: 0 });
+  const shift2 = (await kasir2.get("/api/shifts/active")).json.data;
+  r = await kasir2.patch(`/api/transactions/${trx2}`, { reason: "uji batal kasir lain" });
+  const voidedBy = new Database(file, { readonly: true }).prepare("select voided_by v from transactions where transaction_number = ?").get(trx2)?.v;
+  check("kasir lain dengan shift buka boleh batal", r.status === 200 && voidedBy === "user-uji-kasir2", `${r.status} ${r.json?.message} ${voidedBy}`);
+  await kasir2.post("/api/shifts/close", { closingCash: 0, shiftId: shift2.id });
+
+  // Harga modal saat terima PO
+  r = await mgr.post("/api/purchase-orders", { supplierName: "Uji Supplier", orderDate: "2026-11-23", items: [{ productId: P.id, qty: 2 }] });
+  const po2 = r.json?.data?.id;
+  r = await mgr.post("/api/purchase-orders/receive", { poId: po2, receivedItems: [{ productId: P.id, qty: 2, cost: -5 }] });
+  check("terima PO: modal negatif ditolak", r.status === 400, r.json?.message);
+  r = await mgr.post("/api/purchase-orders/receive", { poId: po2, receivedItems: [{ productId: P.id, qty: 2, cost: 1234 }] });
+  const costDb = new Database(file, { readonly: true });
+  const newCost = costDb.prepare("select cost from products where id = ?").get(P.id).cost;
+  const unitCost = costDb.prepare("select unit_cost u from purchase_order_items where purchase_order_id = ?").get(po2).u;
+  costDb.close();
+  check("terima PO: modal barang & PO tercatat", r.status === 200 && newCost === 1234 && unitCost === 1234, `${r.status} cost ${newCost} unit ${unitCost}`);
+
+  // Retur supplier banyak barang
+  const stockOf = (id) => new Database(file, { readonly: true }).prepare("select stock_qty s from products where id = ?").get(id).s;
+  const [p0, q0] = [stockOf(P.id), stockOf(Q.id)];
+  r = await mgr.post("/api/returns/purchase", { supplierName: "Uji Supplier", reason: "rusak", items: [{ productId: P.id, quantity: 1 }, { productId: Q.id, quantity: 999 }] });
+  check("retur multi: satu stok kurang = semua batal", r.status === 400 && stockOf(P.id) === p0, `${r.status} ${stockOf(P.id)}`);
+  r = await mgr.post("/api/returns/purchase", { supplierName: "Uji Supplier", reason: "rusak", items: [{ productId: P.id, quantity: 1 }, { productId: Q.id, quantity: 1 }] });
+  check("retur multi: 2 barang tersimpan", r.status === 200 && stockOf(P.id) === p0 - 1 && stockOf(Q.id) === q0 - 1, `${r.status} ${stockOf(P.id)} ${stockOf(Q.id)}`);
+
+  // Stok minimum hanya pengingat: tetap bisa dijual sampai 0
+  const qStock = stockOf(Q.id);
+  const rawMin = new Database(file);
+  rawMin.prepare("update products set min_stock = 50 where id = ?").run(Q.id);
+  rawMin.close();
+  r = await kasir.post("/api/transactions", { items: [{ id: Q.id, qty: qStock }], paymentMethod: "tunai", cashReceived: 10000000 });
+  check("stok di bawah minimum tetap terjual sampai 0", r.json?.success && stockOf(Q.id) === 0, `${r.json?.message} stok ${stockOf(Q.id)}`);
 
   await kasir.post("/api/shifts/close", { closingCash: 100000, shiftId: shift.id });
   for (const x of results) console.log(x.ok ? "PASS" : "FAIL", x.name, x.ok ? "" : JSON.stringify(x.detail));

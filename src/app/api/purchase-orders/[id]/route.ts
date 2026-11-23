@@ -38,6 +38,8 @@ export async function GET(
         barcode: products.barcode,
         quantity: purchaseOrderItems.quantity,
         receivedQty: purchaseOrderItems.receivedQty,
+        unitCost: purchaseOrderItems.unitCost,
+        cost: products.cost,
       })
       .from(purchaseOrderItems)
       .innerJoin(products, eq(purchaseOrderItems.productId, products.id))

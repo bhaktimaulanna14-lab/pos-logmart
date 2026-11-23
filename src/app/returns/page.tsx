@@ -28,8 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, PlusCircle, RotateCcw, Eye } from "lucide-react";
-import { ProductPicker, type ProductOption } from "@/components/ProductSearch";
+import { Search, PlusCircle, RotateCcw, Eye, X } from "lucide-react";
+import { ProductPicker, ProductSearch, type ProductOption } from "@/components/ProductSearch";
 
 type ReturnItem = {
   id: number;
@@ -59,7 +59,7 @@ export default function ReturnsPage() {
   const [returns, setReturns] = useState<ReturnItem[]>([]);
   // Barang terpilih di form retur (dicari lewat nama / barcode, bukan dropdown semua barang).
   const [customerProduct, setCustomerProduct] = useState<ProductOption | null>(null);
-  const [supplierProduct, setSupplierProduct] = useState<ProductOption | null>(null);
+  const [supplierItems, setSupplierItems] = useState<{ product: ProductOption; qty: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,8 +78,6 @@ export default function ReturnsPage() {
   const [isSupplierFormOpen, setIsSupplierFormOpen] = useState(false);
   const [supplierFormData, setSupplierFormData] = useState({
     supplierName: "",
-    productId: "",
-    qty: 1,
     reason: "",
   });
 
@@ -173,7 +171,7 @@ export default function ReturnsPage() {
   const handleSubmitSupplierReturn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!supplierFormData.supplierName || !supplierFormData.productId || Number(supplierFormData.qty) <= 0) {
+    if (!supplierFormData.supplierName || supplierItems.length === 0 || supplierItems.some((i) => !(i.qty >= 1))) {
       alert("Pastikan nama supplier, barang, dan kuantitas diisi dengan benar.");
       return;
     }
@@ -185,8 +183,7 @@ export default function ReturnsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           supplierName: supplierFormData.supplierName,
-          productId: supplierFormData.productId,
-          quantity: Number(supplierFormData.qty),
+          items: supplierItems.map((i) => ({ productId: i.product.id, quantity: i.qty })),
           reason: supplierFormData.reason
         })
       });
@@ -194,8 +191,8 @@ export default function ReturnsPage() {
       const json = await res.json();
       if (json.success) {
         setIsSupplierFormOpen(false);
-        setSupplierFormData({ supplierName: "", productId: "", qty: 1, reason: "" });
-        setSupplierProduct(null);
+        setSupplierFormData({ supplierName: "", reason: "" });
+        setSupplierItems([]);
         fetchReturns();
       } else {
         alert(json.message || "Gagal mengajukan retur");
@@ -553,28 +550,37 @@ export default function ReturnsPage() {
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="productIdSup">Barang yang Diretur</Label>
-              <ProductPicker
-                value={supplierProduct}
+              <Label>Barang yang Diretur</Label>
+              <ProductSearch
                 disableOutOfStock
-                onChange={(p) => {
-                  setSupplierProduct(p);
-                  setSupplierFormData(prev => ({ ...prev, productId: p?.id ?? "" }));
-                }}
+                onSelect={(p) => setSupplierItems((prev) => (prev.some((i) => i.product.id === p.id) ? prev : [...prev, { product: p, qty: 1 }]))}
               />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label htmlFor="qtySup">Kuantitas</Label>
-              <Input
-                id="qtySup"
-                name="qty"
-                type="number"
-                min="1"
-                value={supplierFormData.qty}
-                onChange={handleSupplierInputChange}
-                required
-              />
+              {supplierItems.length > 0 && (
+                <div className="space-y-2 max-h-[40vh] overflow-auto">
+                  {supplierItems.map((item) => (
+                    <div key={item.product.id} className="flex items-center gap-2 rounded-md border bg-slate-50 p-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.product.name}</div>
+                        <div className="text-xs text-slate-500">Stok {item.product.stock}</div>
+                      </div>
+                      <Input
+                        type="number"
+                        min="1"
+                        max={item.product.stock}
+                        aria-label={`Jumlah retur ${item.product.name}`}
+                        value={item.qty}
+                        onChange={(e) => setSupplierItems((prev) => prev.map((i) => (i.product.id === item.product.id ? { ...i, qty: Number(e.target.value) } : i)))}
+                        className="w-20 text-center"
+                        required
+                      />
+                      <Button type="button" variant="ghost" size="sm" className="text-red-500 px-2" aria-label={`Hapus ${item.product.name}`}
+                        onClick={() => setSupplierItems((prev) => prev.filter((i) => i.product.id !== item.product.id))}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             
             <div className="grid gap-2">
@@ -593,7 +599,7 @@ export default function ReturnsPage() {
               <Button type="button" variant="outline" onClick={() => setIsSupplierFormOpen(false)}>
                 Batal
               </Button>
-              <Button type="submit" disabled={isSubmitting || !supplierFormData.productId}>
+              <Button type="submit" disabled={isSubmitting || supplierItems.length === 0}>
                 {isSubmitting ? "Menyimpan..." : "Simpan Retur Supplier"}
               </Button>
             </DialogFooter>

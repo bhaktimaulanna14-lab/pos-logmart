@@ -118,7 +118,7 @@ export default function TransactionsPage() {
   };
 
   const [isVoiding, setIsVoiding] = useState(false);
-  // Kasir membatalkan transaksinya sendiri selama shift masih buka (dicek ulang di server).
+  // Kasir yang shift-nya buka boleh membatalkan transaksi selama shift transaksi itu masih buka (dicek ulang di server).
   const handleVoid = async () => {
     if (!selectedTrx) return;
     const reason = window.prompt(`Batalkan ${selectedTrx.id}? Stok akan dikembalikan dan uang Rp ${selectedTrx.total.toLocaleString("id-ID")} dikembalikan ke pelanggan.
@@ -430,7 +430,7 @@ Alasan pembatalan:`);
 
               <div className="flex flex-wrap justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setSelectedTrx(null)}>Tutup</Button>
-                {!selectedTrx.voidedAt && user?.role === "kasir" && user.id === selectedTrx.cashierId && (
+                {!selectedTrx.voidedAt && user?.role === "kasir" && (
                   <Button variant="destructive" className="gap-2" disabled={isVoiding} onClick={handleVoid}>
                     {isVoiding ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />} Batalkan
                   </Button>

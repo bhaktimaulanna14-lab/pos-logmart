@@ -7,6 +7,7 @@
  * Akun uji (password hanya untuk pengujian lokal):
  *   uji-manajer / uji-lokal-123  (role manajer)
  *   uji-kasir   / uji-lokal-123  (role kasir)
+ *   uji-kasir2  / uji-lokal-123  (role kasir, untuk uji pembatalan oleh kasir lain)
  */
 const Database = require("better-sqlite3");
 const bcrypt = require("bcryptjs");
@@ -27,4 +28,5 @@ const upsert = db.prepare(
 );
 upsert.run("user-uji-manajer", "Uji Manajer (lokal)", "uji-manajer", hash, "manajer", now);
 upsert.run("user-uji-kasir", "Uji Kasir (lokal)", "uji-kasir", hash, "kasir", now);
+upsert.run("user-uji-kasir2", "Uji Kasir 2 (lokal)", "uji-kasir2", hash, "kasir", now);
 console.log("Akun uji ditambahkan ke", file);

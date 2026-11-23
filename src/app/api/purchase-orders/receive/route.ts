@@ -7,7 +7,8 @@ import { addBatch, isValidDate } from "@/lib/batches";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 // Terima barang dari sebuah PO dan tambahkan stok — semuanya dalam satu transaksi.
-// receivedItems: { productId, qty, expiryDate? }[]  (qty 0 = barang itu tidak datang; expiryDate YYYY-MM-DD opsional)
+// receivedItems: { productId, qty, expiryDate?, cost? }[]  (qty 0 = barang itu tidak datang; expiryDate YYYY-MM-DD opsional;
+// cost = harga modal per item dari supplier, opsional — bila diisi menjadi harga modal barang yang baru)
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireSession("manajer");
@@ -22,10 +23,16 @@ export async function POST(request: NextRequest) {
 
     const qtyByProduct = new Map<string, number>();
     const batches: { productId: string; qty: number; expiryDate: string }[] = [];
+    const costByProduct = new Map<string, number>();
     for (const item of receivedItems) {
       const qty = toInt(item?.qty, 0);
       if (!item?.productId || qty === null) throw new ApiError(400, "Jumlah diterima harus bilangan bulat 0 atau lebih");
       if (item.expiryDate && !isValidDate(item.expiryDate)) throw new ApiError(400, "Tanggal kadaluarsa tidak valid");
+      if (item.cost !== undefined && item.cost !== null && item.cost !== "") {
+        const cost = toInt(item.cost, 0);
+        if (cost === null) throw new ApiError(400, "Harga modal harus angka bulat 0 atau lebih");
+        if (qty > 0) costByProduct.set(item.productId, cost);
+      }
       qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + qty);
       if (item.expiryDate && qty > 0) batches.push({ productId: item.productId, qty, expiryDate: item.expiryDate });
     }
@@ -53,12 +60,12 @@ export async function POST(request: NextRequest) {
         if (qty === 0) continue;
 
         tx.update(purchaseOrderItems)
-          .set({ receivedQty: sql`${purchaseOrderItems.receivedQty} + ${qty}` })
+          .set({ receivedQty: sql`${purchaseOrderItems.receivedQty} + ${qty}`, ...(costByProduct.has(productId) ? { unitCost: costByProduct.get(productId) } : {}) })
           .where(and(eq(purchaseOrderItems.purchaseOrderId, poId), eq(purchaseOrderItems.productId, productId)))
           .run();
 
         tx.update(products)
-          .set({ stockQty: sql`${products.stockQty} + ${qty}` })
+          .set({ stockQty: sql`${products.stockQty} + ${qty}`, ...(costByProduct.has(productId) ? { cost: costByProduct.get(productId) } : {}) })
           .where(eq(products.id, productId))
           .run();
 

@@ -37,6 +37,7 @@ export default function ReceiveGoodsPage({
   
   const [receivedQty, setReceivedQty] = useState<Record<string, number>>({});
   const [expiry, setExpiry] = useState<Record<string, string>>({});
+  const [cost, setCost] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmWarning, setShowConfirmWarning] = useState(false);
@@ -51,6 +52,8 @@ export default function ReceiveGoodsPage({
           setReceivedQty(
             Object.fromEntries(json.data.items.map((item: any) => [item.id, item.quantity]))
           );
+          // Diisi harga modal sekarang; ubah bila harga dari supplier ini berbeda.
+          setCost(Object.fromEntries(json.data.items.map((item: any) => [item.id, String(item.cost)])));
         }
         setIsLoading(false);
       })
@@ -114,6 +117,7 @@ export default function ReceiveGoodsPage({
         productId: item.productId,
         qty: receivedQty[item.id] ?? 0,
         expiryDate: expiry[item.id] || undefined,
+        cost: cost[item.id] === "" ? undefined : Number(cost[item.id]),
       }));
       
       const res = await fetch("/api/purchase-orders/receive", {
@@ -207,6 +211,7 @@ export default function ReceiveGoodsPage({
               <TableHead>Barcode</TableHead>
               <TableHead className="text-center">Qty Dipesan</TableHead>
               <TableHead className="text-center w-[160px]">Qty Diterima</TableHead>
+              <TableHead className="text-center w-[150px]">Harga Modal</TableHead>
               <TableHead className="text-center w-[170px]">Kadaluarsa</TableHead>
               <TableHead className="text-center">Selisih</TableHead>
             </TableRow>
@@ -214,7 +219,7 @@ export default function ReceiveGoodsPage({
           <TableBody>
             {po.items?.length === 0 ? (
                <TableRow>
-                 <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                 <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                    <Package className="w-8 h-8 mx-auto mb-2 opacity-20" />
                    Tidak ada barang
                  </TableCell>
@@ -235,6 +240,16 @@ export default function ReceiveGoodsPage({
                       value={received}
                       onChange={(e) => handleQtyChange(item.id, e.target.value)}
                       className="w-24 mx-auto text-center font-bold"
+                    />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      aria-label={`Harga modal ${item.name}`}
+                      value={cost[item.id] ?? ""}
+                      onChange={(e) => setCost((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      className="w-[130px] mx-auto text-right"
                     />
                   </TableCell>
                   <TableCell className="text-center">

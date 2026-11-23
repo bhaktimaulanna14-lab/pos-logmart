@@ -241,6 +241,17 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
   - Kolom yang terisi mengganti semua tanggal barang itu, kolom kosong tidak mengubahnya. Parsernya `parseExpiryCell` di `src/lib/batches.ts`.
 - **Tes (lokal saja):** `node scripts/test-expiry.js sqlite-prod.db`. Langkah persiapannya ada di kepala file.
 
+### - [x] F12. Stok minimum, pembatalan kasir, harga modal PO, retur supplier multi-barang — P2 (diminta user, 23 Nov 2026)
+- **Stok minimum** hanya pengingat PO (dashboard "stok menipis"); tidak pernah memblokir penjualan. Yang memblokir hanya stok sistem lebih kecil dari jumlah dijual. Kasir kini menampilkan alert jelas saat barang dengan stok sistem <= 0 di-scan/diklik (minta manajer koreksi stok), bukan gagal diam-diam saat bayar.
+- **Pembatalan transaksi:**
+  - kasir mana pun yang shift-nya buka boleh membatalkan, bukan hanya kasir yang melayani; pelaku tercatat di `transactions.voided_by`;
+  - syarat lain tetap: shift transaksi masih buka, belum ada retur, alasan wajib;
+  - tombol "Batalkan Transaksi" di header Kasir membuka daftar transaksi hari ini.
+- **Harga modal saat Terima PO:** kolom "Harga Modal" per barang (terisi modal sekarang). Nilainya disimpan di `purchase_order_items.unit_cost` dan menjadi `products.cost` baru (harga penerimaan terakhir, keputusan user). Tampil juga di detail PO.
+- **Retur ke supplier:** satu form untuk banyak barang (supplier & alasan sama). API `POST /api/returns/purchase` menerima `items: [{ productId, quantity }]`; satu baris per barang dengan nomor `RTP-xxxxxx-1..n`; satu stok kurang = semua batal.
+- **Deploy (kolom `unit_cost`):** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db`.
+- **Tes:** ikut di `scripts/test-expiry.js` (34 cek). Seed lokal kini menambah akun `uji-kasir2`.
+
 ## B. Bug & keamanan dari review kode
 
 ### - [x] B1. Simpan transaksi tidak aman dan tidak atomik — P1
