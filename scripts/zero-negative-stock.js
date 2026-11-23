@@ -24,11 +24,11 @@ console.log(`${rows.length} barang stok minus.`);
 
 if (apply && rows.length) {
   db.transaction(() => {
-    const move = db.prepare("insert into stock_movements (id, product_id, type, qty_change, reference_id, created_at) values (?, ?, 'penyesuaian', ?, 'nolkan-stok-minus', ?)");
-    const now = new Date().toISOString();
+    // created_at dibiarkan default DB (CURRENT_TIMESTAMP, "YYYY-MM-DD HH:MM:SS") agar cocok dengan filter laporan.
+    const move = db.prepare("insert into stock_movements (id, product_id, type, qty_change, reference_id) values (?, ?, 'penyesuaian', ?, 'nolkan-stok-minus')");
     for (const r of rows) {
       db.prepare("update products set stock_qty = 0 where id = ?").run(r.id);
-      move.run(randomUUID(), r.id, -r.stock_qty, now);
+      move.run(randomUUID(), r.id, -r.stock_qty);
     }
     const left = db.prepare("select count(*) n from products where stock_qty < 0").get().n;
     if (left !== 0) throw new Error(`Masih ada ${left} stok minus`);
