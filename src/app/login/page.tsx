@@ -87,7 +87,8 @@ export default function LoginPage() {
                   <Input 
                     id="username"
                     type="text" 
-                    placeholder="admin atau kasir1" 
+                    placeholder="admin atau kasir1"
+                    autoComplete="username"
                     className="pl-9"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -103,7 +104,8 @@ export default function LoginPage() {
                   <Input 
                     id="password"
                     type="password" 
-                    placeholder="••••••••" 
+                    placeholder="••••••••"
+                    autoComplete="current-password"
                     className="pl-9"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

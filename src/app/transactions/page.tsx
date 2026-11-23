@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
+import { formatRupiah, formatTanggalJam } from "@/lib/format";
 import { useState, useEffect } from "react";
 import { Search, Calendar, Eye, Printer, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,7 @@ const todayWib = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slic
 
 export default function TransactionsPage() {
   const { user } = useSession();
+  const [confirm, confirmDialog] = useConfirm();
   const [reloadKey, setReloadKey] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -121,9 +124,13 @@ export default function TransactionsPage() {
   // Kasir yang shift-nya buka boleh membatalkan transaksi selama shift transaksi itu masih buka (dicek ulang di server).
   const handleVoid = async () => {
     if (!selectedTrx) return;
-    const reason = window.prompt(`Batalkan ${selectedTrx.id}? Stok akan dikembalikan dan uang Rp ${selectedTrx.total.toLocaleString("id-ID")} dikembalikan ke pelanggan.
-
-Alasan pembatalan:`);
+    const reason = await confirm({
+      title: `Batalkan ${selectedTrx.id}?`,
+      description: `Stok dikembalikan dan uang ${formatRupiah(selectedTrx.total)} dikembalikan ke pelanggan.`,
+      reasonLabel: "Alasan pembatalan",
+      confirmLabel: "Batalkan transaksi",
+      destructive: true,
+    });
     if (reason === null) return;
     setIsVoiding(true);
     try {
@@ -141,14 +148,6 @@ Alasan pembatalan:`);
     } finally {
       setIsVoiding(false);
     }
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleString("id-ID", {
-      day: "numeric", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit"
-    });
   };
 
   return (
@@ -222,7 +221,7 @@ Alasan pembatalan:`);
             <>
               <span className="font-semibold">{total.toLocaleString("id-ID")}</span> transaksi
               {filterDate ? ` pada ${new Date(filterDate + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}` : ""}
-              {" · "}total <span className="font-semibold">Rp {totalAmount.toLocaleString("id-ID")}</span>
+              {" · "}total <span className="font-semibold">{formatRupiah(totalAmount)}</span>
             </>
           )}
         </div>
@@ -251,10 +250,10 @@ Alasan pembatalan:`);
               ) : filteredData.length > 0 ? (
                 filteredData.map((trx) => (
                   <tr key={trx.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">{formatDate(trx.transactionTime)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">{formatTanggalJam(trx.transactionTime)}</td>
                     <td className="px-4 py-3 font-medium text-slate-900">{trx.transactionNumber}{trx.voidedAt && <Badge variant="destructive" className="ml-2">Dibatalkan</Badge>}</td>
                     <td className="px-4 py-3 text-slate-600">{trx.cashierName || "-"}</td>
-                    <td className={`px-4 py-3 font-semibold text-right ${trx.voidedAt ? "line-through text-slate-400" : ""}`}>Rp {(trx.totalAmount || 0).toLocaleString("id-ID")}</td>
+                    <td className={`px-4 py-3 font-semibold text-right ${trx.voidedAt ? "line-through text-slate-400" : ""}`}>{formatRupiah(trx.totalAmount)}</td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant={trx.paymentMethod?.toLowerCase() === "tunai" ? "outline" : "secondary"} className="capitalize">
                         {trx.paymentMethod || "Tunai"}
@@ -307,7 +306,7 @@ Alasan pembatalan:`);
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="font-bold text-slate-900">{trx.transactionNumber}{trx.voidedAt && <Badge variant="destructive" className="ml-2">Dibatalkan</Badge>}</div>
-                    <div className="text-xs text-slate-500">{formatDate(trx.transactionTime)}</div>
+                    <div className="text-xs text-slate-500">{formatTanggalJam(trx.transactionTime)}</div>
                   </div>
                   <Badge variant={trx.paymentMethod?.toLowerCase() === "tunai" ? "outline" : "secondary"} className="capitalize text-[10px] px-1.5 py-0">
                     {trx.paymentMethod || "Tunai"}
@@ -321,7 +320,7 @@ Alasan pembatalan:`);
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-slate-400">Total</div>
-                    <div className="font-bold text-brand-orange">Rp {(trx.totalAmount || 0).toLocaleString("id-ID")}</div>
+                    <div className="font-bold text-brand-orange">{formatRupiah(trx.totalAmount)}</div>
                   </div>
                 </div>
 
@@ -381,7 +380,7 @@ Alasan pembatalan:`);
               <div className="flex justify-between border-b pb-4">
                 <div>
                   <div className="font-semibold">{selectedTrx.id}{selectedTrx.voidedAt && <Badge variant="destructive" className="ml-2">Dibatalkan</Badge>}</div>
-                  <div className="text-sm text-slate-500">{formatDate(selectedTrx.time)}</div>
+                  <div className="text-sm text-slate-500">{formatTanggalJam(selectedTrx.time)}</div>
                 </div>
                 <div className="text-right">
                   <Badge variant={selectedTrx.paymentMethod?.toLowerCase() === "tunai" ? "outline" : "secondary"} className="capitalize">
@@ -398,7 +397,7 @@ Alasan pembatalan:`);
                     {selectedTrx.items.map((item, i: number) => (
                       <div key={i} className="flex justify-between text-sm">
                         <span>{item.name} <span className="text-slate-500">x{item.qty}</span></span>
-                        <span>Rp {(item.qty * item.price).toLocaleString("id-ID")}</span>
+                        <span>{formatRupiah(item.qty * item.price)}</span>
                       </div>
                     ))}
                   </div>
@@ -410,21 +409,21 @@ Alasan pembatalan:`);
               <div className="border-t pt-4 space-y-1 text-sm">
                 <div className="flex justify-between items-center text-slate-500">
                   <span>Dibayar</span>
-                  <span>Rp {(selectedTrx.cashReceived || 0).toLocaleString("id-ID")}</span>
+                  <span>{formatRupiah(selectedTrx.cashReceived)}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-500">
                   <span>Kembalian</span>
-                  <span>Rp {(selectedTrx.change || 0).toLocaleString("id-ID")}</span>
+                  <span>{formatRupiah(selectedTrx.change)}</span>
                 </div>
                 <div className="flex justify-between items-center font-bold text-lg pt-2 border-t">
                   <span>Total</span>
-                  <span>Rp {(selectedTrx.total || 0).toLocaleString("id-ID")}</span>
+                  <span>{formatRupiah(selectedTrx.total)}</span>
                 </div>
               </div>
               
               {selectedTrx.voidedAt && (
                 <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-                  Dibatalkan {formatDate(selectedTrx.voidedAt)}. Alasan: {selectedTrx.voidReason || "-"}
+                  Dibatalkan {formatTanggalJam(selectedTrx.voidedAt)}. Alasan: {selectedTrx.voidReason || "-"}
                 </div>
               )}
 
@@ -453,6 +452,7 @@ Alasan pembatalan:`);
         }} 
         transactionId={selectedTrx?.id /* detail API mengembalikan nomor transaksi di field `id` */}
       />
+      {confirmDialog}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 // @ts-nocheck
 "use client";
 
+import { formatRupiah } from "@/lib/format";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Filter } from "lucide-react";
@@ -42,14 +43,6 @@ export default function ShiftsReportPage() {
 
   const handleDownload = () => {
     window.location.href = "/api/reports/shifts/excel";
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
   };
 
   return (
@@ -116,8 +109,8 @@ export default function ShiftsReportPage() {
                   <TableCell className="font-medium">{shift.userName}</TableCell>
                   <TableCell>{new Date(shift.openAt).toLocaleString("id-ID")}</TableCell>
                   <TableCell>{shift.closeAt ? new Date(shift.closeAt).toLocaleString("id-ID") : "-"}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(shift.openingCash)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(shift.closingCash || 0)}</TableCell>
+                  <TableCell className="text-right">{formatRupiah(shift.openingCash)}</TableCell>
+                  <TableCell className="text-right">{formatRupiah(shift.closingCash || 0)}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant="secondary" className={shift.status === "aktif" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-800"}>
                       {shift.status.toUpperCase()}
@@ -160,11 +153,11 @@ export default function ShiftsReportPage() {
               <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-slate-100">
                 <div>
                   <div className="text-xs text-slate-400">Modal Awal</div>
-                  <div className="font-bold text-slate-700">{formatCurrency(shift.openingCash)}</div>
+                  <div className="font-bold text-slate-700">{formatRupiah(shift.openingCash)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-400">Uang Akhir</div>
-                  <div className="font-bold text-brand-green">{formatCurrency(shift.closingCash || 0)}</div>
+                  <div className="font-bold text-brand-green">{formatRupiah(shift.closingCash || 0)}</div>
                 </div>
               </div>
             </div>

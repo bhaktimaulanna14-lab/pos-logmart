@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
+import { formatRupiah } from "@/lib/format";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search, ScanLine, ShoppingCart, Trash2, CreditCard,
@@ -56,10 +58,6 @@ type ShiftSummary = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatRp(n: number) {
-  return `Rp ${n.toLocaleString("id-ID")}`;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function PosPage() {
@@ -68,6 +66,7 @@ export default function PosPage() {
   const isCashier = user?.role === "kasir";
 
   // Shift state
+  const [confirm, confirmDialog] = useConfirm();
   const [shift, setShift] = useState<Shift | null>(null);
   const [isLoadingShift, setIsLoadingShift] = useState(true);
   const [showOpenShiftDialog, setShowOpenShiftDialog] = useState(false);
@@ -478,9 +477,13 @@ export default function PosPage() {
   };
 
   const handleVoidTrx = async (t: RecentTrx) => {
-    const reason = window.prompt(`Batalkan ${t.transactionNumber}? Stok dikembalikan dan uang ${formatRp(t.totalAmount)} dikembalikan ke pelanggan.
-
-Alasan pembatalan:`);
+    const reason = await confirm({
+      title: `Batalkan ${t.transactionNumber}?`,
+      description: `Stok dikembalikan dan uang ${formatRupiah(t.totalAmount)} dikembalikan ke pelanggan.`,
+      reasonLabel: "Alasan pembatalan",
+      confirmLabel: "Batalkan transaksi",
+      destructive: true,
+    });
     if (reason === null) return;
     setVoidingNumber(t.transactionNumber);
     try {
@@ -634,7 +637,7 @@ Alasan pembatalan:`);
                 <div className="w-full bg-slate-50 p-4 rounded-lg text-left text-sm space-y-2">
                   <div className="flex justify-between font-bold text-base border-b pb-2 mb-2">
                     <span>Total Transaksi</span>
-                    <span>{formatRp(receiptData.total)}</span>
+                    <span>{formatRupiah(receiptData.total)}</span>
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Metode</span>
@@ -642,12 +645,12 @@ Alasan pembatalan:`);
                   </div>
                   <div className="flex justify-between text-slate-600">
                     <span>Bayar</span>
-                    <span>{formatRp(receiptData.cashReceived)}</span>
+                    <span>{formatRupiah(receiptData.cashReceived)}</span>
                   </div>
                   {receiptData.change > 0 && (
                     <div className="flex justify-between font-semibold text-green-700 pt-2 border-t mt-2">
                       <span>Kembalian</span>
-                      <span>{formatRp(receiptData.change)}</span>
+                      <span>{formatRupiah(receiptData.change)}</span>
                     </div>
                   )}
                 </div>
@@ -709,7 +712,7 @@ Alasan pembatalan:`);
                       <CardContent className="p-3 md:p-4 text-center flex flex-col h-full">
                         <div className="text-xs text-slate-400 mb-1">{product.barcode}</div>
                         <div className="font-semibold text-sm md:text-base leading-tight mb-2 flex-1">{product.name}</div>
-                        <div className="text-brand-orange font-bold mb-2">{formatRp(product.price)}</div>
+                        <div className="text-brand-orange font-bold mb-2">{formatRupiah(product.price)}</div>
                         <div className="text-xs font-medium text-slate-500 bg-slate-100 rounded-full py-1">
                           Stok: {product.stock}
                         </div>
@@ -770,11 +773,11 @@ Alasan pembatalan:`);
                         <div className="font-semibold text-right shrink-0">
                           {pricingFresh?.lines[item.id]?.discount ? (
                             <>
-                              <div className="text-xs text-slate-400 line-through font-normal">{formatRp(item.price * item.qty)}</div>
-                              <div className="text-brand-green">{formatRp(item.price * item.qty - pricingFresh.lines[item.id].discount)}</div>
+                              <div className="text-xs text-slate-400 line-through font-normal">{formatRupiah(item.price * item.qty)}</div>
+                              <div className="text-brand-green">{formatRupiah(item.price * item.qty - pricingFresh.lines[item.id].discount)}</div>
                             </>
                           ) : (
-                            formatRp(item.price * item.qty)
+                            formatRupiah(item.price * item.qty)
                           )}
                         </div>
                       </div>
@@ -784,7 +787,7 @@ Alasan pembatalan:`);
                         </div>
                       )}
                       <div className="flex justify-between items-center mt-1">
-                        <div className="text-xs text-slate-500">{formatRp(item.price)}</div>
+                        <div className="text-xs text-slate-500">{formatRupiah(item.price)}</div>
                         <div className="flex items-center gap-2 bg-slate-100 rounded-md p-0.5">
                           <Button
                             variant="ghost" size="sm" className="h-8 w-8 md:h-6 md:w-6 rounded p-0 text-lg md:text-sm"
@@ -808,17 +811,17 @@ Alasan pembatalan:`);
             <div className="p-4 border-t bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
               <div className="flex justify-between items-center mb-2 text-slate-600">
                 <span>Subtotal</span>
-                <span>{formatRp(subtotal)}</span>
+                <span>{formatRupiah(subtotal)}</span>
               </div>
               <div className="flex justify-between items-center mb-4 text-slate-600">
                 <span>Diskon promo</span>
                 <span className={discountTotal > 0 ? "text-brand-green font-medium" : ""}>
-                  {discountTotal > 0 ? `- ${formatRp(discountTotal)}` : "Rp 0"}
+                  {discountTotal > 0 ? `- ${formatRupiah(discountTotal)}` : "Rp 0"}
                 </span>
               </div>
               <div className="flex justify-between items-end mb-4">
                 <span className="font-semibold text-lg">Total</span>
-                <span className="text-3xl font-bold text-brand-green">{formatRp(total)}</span>
+                <span className="text-3xl font-bold text-brand-green">{formatRupiah(total)}</span>
               </div>
 
               <div className="flex gap-2 w-full mb-2">
@@ -900,7 +903,7 @@ Alasan pembatalan:`);
                       <span>•</span>
                       <span>{p.items.length} item</span>
                       <span>•</span>
-                      <span className="font-medium text-slate-700">{formatRp(p.total)}</span>
+                      <span className="font-medium text-slate-700">{formatRupiah(p.total)}</span>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -940,7 +943,7 @@ Alasan pembatalan:`);
                   <div>
                     <div className="font-semibold text-slate-800">{t.transactionNumber}</div>
                     <div className="text-xs text-slate-500">
-                      {new Date(t.transactionTime).toLocaleTimeString("id-ID")} • {t.cashierName ?? "-"} • <span className="font-medium text-slate-700">{formatRp(t.totalAmount)}</span>
+                      {new Date(t.transactionTime).toLocaleTimeString("id-ID")} • {t.cashierName ?? "-"} • <span className="font-medium text-slate-700">{formatRupiah(t.totalAmount)}</span>
                     </div>
                   </div>
                   {t.voidedAt ? (
@@ -966,7 +969,7 @@ Alasan pembatalan:`);
           <DialogHeader>
             <DialogTitle>Pembayaran</DialogTitle>
             <DialogDescription>
-              Total tagihan: <span className="font-bold text-lg text-slate-900">{formatRp(total)}</span>
+              Total tagihan: <span className="font-bold text-lg text-slate-900">{formatRupiah(total)}</span>
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCheckout} className="grid gap-6 py-4">
@@ -999,7 +1002,7 @@ Alasan pembatalan:`);
                     <span className="font-medium">Kembalian:</span>
                     <span className="font-bold text-lg">
                       {Number(cashReceived) >= total
-                        ? formatRp(Number(cashReceived) - total)
+                        ? formatRupiah(Number(cashReceived) - total)
                         : "Uang Kurang"}
                     </span>
                   </div>
@@ -1013,7 +1016,7 @@ Alasan pembatalan:`);
                   {[20000, 50000, 100000].filter((a) => a > total).map((amt) => (
                     <Button key={amt} type="button" variant="outline" size="sm"
                       onClick={() => setCashReceived(amt.toString())}>
-                      {formatRp(amt)}
+                      {formatRupiah(amt)}
                     </Button>
                   ))}
                 </div>
@@ -1050,15 +1053,15 @@ Alasan pembatalan:`);
               <div className="bg-slate-50 p-4 rounded-lg space-y-3 text-sm">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Uang Modal Awal:</span>
-                  <span className="font-semibold">{formatRp(shift?.openingCash ?? 0)}</span>
+                  <span className="font-semibold">{formatRupiah(shift?.openingCash ?? 0)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Total Penjualan Tunai:</span>
-                  <span className="font-semibold">{formatRp(shiftSummary?.totalCash ?? 0)}</span>
+                  <span className="font-semibold">{formatRupiah(shiftSummary?.totalCash ?? 0)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Total Penjualan Debit/QRIS:</span>
-                  <span className="font-semibold">{formatRp(shiftSummary?.totalNonCash ?? 0)}</span>
+                  <span className="font-semibold">{formatRupiah(shiftSummary?.totalNonCash ?? 0)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Jumlah Transaksi:</span>
@@ -1066,7 +1069,7 @@ Alasan pembatalan:`);
                 </div>
                 <div className="border-t pt-2 flex justify-between items-center font-bold text-slate-800 text-base">
                   <span>Ekspektasi Uang di Laci:</span>
-                  <span>{formatRp((shift?.openingCash ?? 0) + (shiftSummary?.totalCash ?? 0))}</span>
+                  <span>{formatRupiah((shift?.openingCash ?? 0) + (shiftSummary?.totalCash ?? 0))}</span>
                 </div>
               </div>
 
@@ -1085,7 +1088,7 @@ Alasan pembatalan:`);
                   return (
                     <div className={`text-sm mt-1 flex items-center justify-between font-medium ${diff === 0 ? "text-green-600" : diff > 0 ? "text-brand-green" : "text-red-600"}`}>
                       <span>Selisih:</span>
-                      <span>{diff > 0 ? "+" : ""}{formatRp(diff)}</span>
+                      <span>{diff > 0 ? "+" : ""}{formatRupiah(diff)}</span>
                     </div>
                   );
                 })()}
@@ -1108,6 +1111,7 @@ Alasan pembatalan:`);
         onClose={() => setShowReceipt(false)}
         transactionId={receiptData?.id}
       />
+      {confirmDialog}
     </div>
   );
 }

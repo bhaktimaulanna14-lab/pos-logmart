@@ -2,6 +2,8 @@
 // @ts-nocheck
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
+import { formatRupiah, formatTanggal } from "@/lib/format";
 import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -24,6 +26,7 @@ export default function PurchaseOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const unwrappedParams = use(params);
+  const [confirm, confirmDialog] = useConfirm();
   const [po, setPo] = useState<Record<string, any>>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -59,13 +62,6 @@ export default function PurchaseOrderDetailPage({
       </div>
     );
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
 
   const totalItems = po.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const totalReceived = po.items?.reduce((sum, item) => sum + item.receivedQty, 0) || 0;
@@ -111,8 +107,8 @@ export default function PurchaseOrderDetailPage({
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              {po.supplierName} · Dipesan {formatDate(po.orderDate)}
-              {po.receivedAt && ` · Diterima ${formatDate(po.receivedAt)}`}
+              {po.supplierName} · Dipesan {formatTanggal(po.orderDate)}
+              {po.receivedAt && ` · Diterima ${formatTanggal(po.receivedAt)}`}
             </p>
           </div>
 
@@ -129,7 +125,7 @@ export default function PurchaseOrderDetailPage({
                 variant="destructive" 
                 className="flex items-center gap-2" 
                 onClick={async () => {
-                  if(confirm('Yakin ingin membatalkan PO ini?')) {
+                  if (await confirm({ title: "Batalkan PO ini?", confirmLabel: "Batalkan PO", destructive: true })) {
                     const res = await fetch(`/api/purchase-orders/${po.id}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
@@ -213,7 +209,7 @@ export default function PurchaseOrderDetailPage({
                         {item.receivedQty}
                       </TableCell>
                       <TableCell className="text-right">
-                        {item.unitCost == null ? "-" : `Rp ${item.unitCost.toLocaleString("id-ID")}`}
+                        {item.unitCost == null ? "-" : formatRupiah(item.unitCost)}
                       </TableCell>
                       <TableCell className="text-center">
                         {po.status === "dipesan" ? (
@@ -240,6 +236,7 @@ export default function PurchaseOrderDetailPage({
           </Table>
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

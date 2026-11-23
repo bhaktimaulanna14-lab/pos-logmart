@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
+import { formatRupiah } from "@/lib/format";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -45,6 +47,7 @@ type Category = {
 };
 
 export default function ProductsPage() {
+  const [confirm, confirmDialog] = useConfirm();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   
@@ -74,14 +77,6 @@ export default function ProductsPage() {
   // Selection — disimpan lintas halaman (id → data barang) untuk cetak label.
   const [selectedMap, setSelectedMap] = useState<Map<string, Product>>(new Map());
   const selectedProducts = { has: (id: string) => selectedMap.has(id), size: selectedMap.size };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // --- Data Fetching ---
 
@@ -190,7 +185,7 @@ export default function ProductsPage() {
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (!confirm("Hapus kategori ini?")) return;
+    if (!(await confirm({ title: "Hapus kategori ini?", confirmLabel: "Hapus", destructive: true }))) return;
     try {
       const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
       const json = await res.json();
@@ -255,7 +250,7 @@ export default function ProductsPage() {
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm("Nonaktifkan barang ini?")) return;
+    if (!(await confirm({ title: "Nonaktifkan barang ini?", confirmLabel: "Nonaktifkan", destructive: true }))) return;
     try {
       const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
       const json = await res.json();
@@ -365,7 +360,7 @@ export default function ProductsPage() {
                       <div key={product.id} className="bg-white border p-3 flex flex-col items-center text-center justify-center rounded shadow-sm">
                         <div className="font-bold text-sm leading-tight mb-1">{product.name}</div>
                         <div className="text-xs text-muted-foreground mb-2">{product.barcode}</div>
-                        <div className="font-mono font-semibold text-lg">{formatCurrency(product.price)}</div>
+                        <div className="font-mono font-semibold text-lg">{formatRupiah(product.price)}</div>
                       </div>
                     ))}
                   </div>
@@ -661,8 +656,8 @@ export default function ProductsPage() {
                   <TableCell className="font-medium">{product.barcode}</TableCell>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{product.categoryName || "-"}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(product.cost)}</TableCell>
+                  <TableCell className="text-right">{formatRupiah(product.price)}</TableCell>
+                  <TableCell className="text-right">{formatRupiah(product.cost)}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant={product.stockQty <= 0 ? "destructive" : product.stockQty <= product.minStock ? "secondary" : "default"}>
                       {product.stockQty}
@@ -768,11 +763,11 @@ export default function ProductsPage() {
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                   <div>
                     <div className="text-xs text-slate-400 mb-1">Harga Modal</div>
-                    <div className="font-medium text-slate-700">{formatCurrency(product.cost)}</div>
+                    <div className="font-medium text-slate-700">{formatRupiah(product.cost)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-400 mb-1">Harga Jual</div>
-                    <div className="font-bold text-brand-orange">{formatCurrency(product.price)}</div>
+                    <div className="font-bold text-brand-orange">{formatRupiah(product.price)}</div>
                   </div>
                 </div>
                 
@@ -813,6 +808,7 @@ export default function ProductsPage() {
         onClose={() => setExpiryProduct(null)}
         onSaved={() => fetchProducts(searchTerm, categoryFilter, page, expiryFilter, stockFilter)}
       />
+      {confirmDialog}
     </div>
   );
 }

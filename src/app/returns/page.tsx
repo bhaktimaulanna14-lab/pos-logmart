@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
 import React, { useState, useEffect } from "react";
 import {
   Table,
@@ -56,6 +57,7 @@ type Product = {
 };
 
 export default function ReturnsPage() {
+  const [confirm, confirmDialog] = useConfirm();
   const [returns, setReturns] = useState<ReturnItem[]>([]);
   // Barang terpilih di form retur (dicari lewat nama / barcode, bukan dropdown semua barang).
   const [customerProduct, setCustomerProduct] = useState<ProductOption | null>(null);
@@ -206,7 +208,7 @@ export default function ReturnsPage() {
   };
 
   const handleStatusUpdate = async (id: number, newStatus: string) => {
-    if (!confirm(`Apakah Anda yakin ingin mengubah status retur menjadi ${newStatus}?`)) return;
+    if (!(await confirm({ title: `Ubah status retur menjadi ${newStatus}?`, confirmLabel: "Ya, ubah" }))) return;
     
     try {
       const res = await fetch(`/api/returns?id=${id}`, {
@@ -688,6 +690,7 @@ export default function ReturnsPage() {
           )}
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }

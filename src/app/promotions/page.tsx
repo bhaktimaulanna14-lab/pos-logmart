@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
+import { formatRupiah } from "@/lib/format";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BadgePercent, Plus, Edit, Trash2, Power, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +49,6 @@ const TYPE_HELP: Record<PromoType, string> = {
   beli_gratis: "Contoh: beli 2 gratis 1 (barang yang sama). Kasir memasukkan 3 item, 1 item gratis.",
 };
 
-const rp = (n: number) => `Rp ${(n || 0).toLocaleString("id-ID")}`;
 const todayWib = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
 const fmtDate = (ymd: string) =>
   new Date(ymd + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
@@ -55,8 +56,8 @@ const fmtDate = (ymd: string) =>
 function describe(p: Pick<Promo, "type" | "value" | "minQty">) {
   switch (p.type) {
     case "persen": return `Diskon ${p.value}%`;
-    case "nominal": return `Potong ${rp(p.value)}/item`;
-    case "grosir": return `Min. ${p.minQty} → ${rp(p.value)}/item`;
+    case "nominal": return `Potong ${formatRupiah(p.value)}/item`;
+    case "grosir": return `Min. ${p.minQty} → ${formatRupiah(p.value)}/item`;
     case "beli_gratis": return `Beli ${p.minQty} gratis ${p.value}`;
   }
 }
@@ -96,6 +97,7 @@ const selectClass =
   "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 export default function PromotionsPage() {
+  const [confirm, confirmDialog] = useConfirm();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,7 +197,7 @@ export default function PromotionsPage() {
   };
 
   const remove = async (p: Promo) => {
-    if (!confirm(`Hapus promo "${p.name}"?`)) return;
+    if (!(await confirm({ title: `Hapus promo "${p.name}"?`, confirmLabel: "Hapus", destructive: true }))) return;
     const res = await fetch(`/api/promotions/${p.id}`, { method: "DELETE" });
     const json = await res.json();
     if (!json.success) alert(json.message || "Gagal menghapus promo");
@@ -209,10 +211,10 @@ export default function PromotionsPage() {
     const min = Number(form.minQty) || 1;
     if (!price || !v) return null;
     switch (form.type) {
-      case "persen": return `1 item ${rp(price)} → bayar ${rp(Math.round(price * (100 - Math.min(v, 100)) / 100))}`;
-      case "nominal": return `1 item ${rp(price)} → bayar ${rp(Math.max(price - v, 0))}`;
-      case "grosir": return `${min} item: normal ${rp(price * min)} → bayar ${rp(v * min)}`;
-      case "beli_gratis": return `${min + v} item: normal ${rp(price * (min + v))} → bayar ${rp(price * min)}`;
+      case "persen": return `1 item ${formatRupiah(price)} → bayar ${formatRupiah(Math.round(price * (100 - Math.min(v, 100)) / 100))}`;
+      case "nominal": return `1 item ${formatRupiah(price)} → bayar ${formatRupiah(Math.max(price - v, 0))}`;
+      case "grosir": return `${min} item: normal ${formatRupiah(price * min)} → bayar ${formatRupiah(v * min)}`;
+      case "beli_gratis": return `${min + v} item: normal ${formatRupiah(price * (min + v))} → bayar ${formatRupiah(price * min)}`;
     }
   }, [form]);
 
@@ -266,7 +268,7 @@ export default function PromotionsPage() {
                       {p.targetType === "produk" ? `Barang: ${p.productName}` : `Kategori: ${p.categoryName}`}
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
-                      {fmtDate(p.startDate)} – {fmtDate(p.endDate)} · dipakai {p.usedCount}× · total potongan {rp(p.discountGiven)}
+                      {fmtDate(p.startDate)} – {fmtDate(p.endDate)} · dipakai {p.usedCount}× · total potongan {formatRupiah(p.discountGiven)}
                     </div>
                   </div>
                   <div className="flex gap-1 shrink-0">
@@ -369,6 +371,7 @@ export default function PromotionsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirm } from "@/components/confirm-dialog";
+import { formatTanggal } from "@/lib/format";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -32,6 +34,7 @@ import { Search, PackagePlus, ChevronRight, Package, Loader2, Trash2 } from "luc
 import { ProductSearch, type ProductOption } from "@/components/ProductSearch";
 
 export default function PurchaseOrdersPage() {
+  const [confirm, confirmDialog] = useConfirm();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("semua");
   const [pos, setPos] = useState<{ id: string; poNumber: string; supplierName: string; orderDate: string; status: string }[]>([]);
@@ -66,13 +69,6 @@ export default function PurchaseOrdersPage() {
   useEffect(() => {
     fetchPOs();
   }, [fetchPOs]);
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
 
   const filteredPOs = pos.filter((po) => {
     const matchesSearch =
@@ -141,7 +137,7 @@ export default function PurchaseOrdersPage() {
         setNotes("");
         setPoItems([]);
         // Header attachment: file terunduh tanpa meninggalkan halaman.
-        if (confirm(`PO ${json.data.poNumber} berhasil dibuat. Unduh PDF untuk diserahkan ke supplier?`)) {
+        if (await confirm({ title: `PO ${json.data.poNumber} berhasil dibuat`, description: "Unduh PDF untuk diserahkan ke supplier?", confirmLabel: "Unduh PDF" })) {
           window.location.href = new URL(`/api/purchase-orders/${json.data.id}/pdf`, window.location.origin).href;
         }
         fetchPOs(); // Refetch the list to include the new PO
@@ -239,7 +235,7 @@ export default function PurchaseOrdersPage() {
                 <TableRow key={po.id}>
                   <TableCell className="font-medium">{po.poNumber}</TableCell>
                   <TableCell>{po.supplierName}</TableCell>
-                  <TableCell>{formatDate(po.orderDate)}</TableCell>
+                  <TableCell>{formatTanggal(po.orderDate)}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className="text-yellow-700 bg-yellow-50 border-yellow-200">
                       Menunggu
@@ -277,7 +273,7 @@ export default function PurchaseOrdersPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <div className="font-bold text-slate-900">{po.poNumber}</div>
-                  <div className="text-xs text-slate-500">{formatDate(po.orderDate)}</div>
+                  <div className="text-xs text-slate-500">{formatTanggal(po.orderDate)}</div>
                 </div>
                 <Badge variant="outline" className="text-yellow-700 bg-yellow-50 border-yellow-200 text-[10px] px-1.5 py-0">
                   Menunggu
@@ -454,6 +450,7 @@ export default function PurchaseOrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRupiah, formatRupiahSingkat } from "@/lib/format";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
@@ -96,12 +97,6 @@ export default function Home() {
       .catch((err) => console.error("Chart data error:", err));
   }, [router]);
 
-  const formatRupiah = (value: number) => {
-    if (value >= 1000000) return `Rp ${(value / 1000000).toFixed(1)}jt`;
-    if (value >= 1000) return `Rp ${(value / 1000).toFixed(0)}rb`;
-    return `Rp ${value}`;
-  };
-
   if (!role) return null;
 
   return (
@@ -125,8 +120,8 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <span className="md:hidden">{formatRupiah(summary.todaySales)}</span>
-              <span className="hidden md:inline">Rp {summary.todaySales.toLocaleString("id-ID")}</span>
+              <span className="md:hidden">{formatRupiahSingkat(summary.todaySales)}</span>
+              <span className="hidden md:inline">{formatRupiah(summary.todaySales)}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{summary.todayTransactions} transaksi hari ini</p>
           </CardContent>
@@ -150,8 +145,8 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              <span className="md:hidden">{formatRupiah(summary.monthlySales)}</span>
-              <span className="hidden md:inline">Rp {summary.monthlySales.toLocaleString("id-ID")}</span>
+              <span className="md:hidden">{formatRupiahSingkat(summary.monthlySales)}</span>
+              <span className="hidden md:inline">{formatRupiah(summary.monthlySales)}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{summary.monthlyTransactions} transaksi bulan ini</p>
           </CardContent>
@@ -170,9 +165,9 @@ export default function Home() {
               <defs><linearGradient id="brandGreenBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8DC63F" /><stop offset="100%" stopColor="#009245" /></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8efe3" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tickFormatter={formatRupiah} tick={{ fontSize: 11 }} width={70} />
+              <YAxis tickFormatter={formatRupiahSingkat} tick={{ fontSize: 11 }} width={70} />
               <Tooltip
-                formatter={(value) => [`Rp ${Number(value).toLocaleString("id-ID")}`, "Penjualan"]}
+                formatter={(value) => [formatRupiah(Number(value)), "Penjualan"]}
                 labelStyle={{ fontWeight: "bold" }}
               />
               <Bar dataKey="sales" fill="url(#brandGreenBar)" radius={[4, 4, 0, 0]} />

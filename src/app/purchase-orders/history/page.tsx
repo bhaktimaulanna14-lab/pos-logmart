@@ -2,6 +2,7 @@
 // @ts-nocheck
 "use client";
 
+import { formatTanggal } from "@/lib/format";
 import React, { useState, useEffect, useCallback, Fragment } from "react";
 import Link from "next/link";
 import {
@@ -42,13 +43,6 @@ export default function PurchaseOrderHistoryPage() {
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
 
   const filteredPOs = receivedPOs.filter(
     (po) =>
@@ -138,8 +132,8 @@ export default function PurchaseOrderHistoryPage() {
                     </TableCell>
                     <TableCell className="font-medium">{po.poNumber}</TableCell>
                     <TableCell>{po.supplierName}</TableCell>
-                    <TableCell>{formatDate(po.orderDate)}</TableCell>
-                    <TableCell>{po.receivedAt ? formatDate(po.receivedAt) : "-"}</TableCell>
+                    <TableCell>{formatTanggal(po.orderDate)}</TableCell>
+                    <TableCell>{po.receivedAt ? formatTanggal(po.receivedAt) : "-"}</TableCell>
                     <TableCell className="text-center">
                       {po.items?.length || 0}
                     </TableCell>
@@ -227,7 +221,7 @@ export default function PurchaseOrderHistoryPage() {
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="font-bold text-slate-900">{po.poNumber}</div>
-                    <div className="text-xs text-slate-500">{formatDate(po.orderDate)}</div>
+                    <div className="text-xs text-slate-500">{formatTanggal(po.orderDate)}</div>
                   </div>
                   <Badge variant="secondary" className="text-green-700 bg-green-50 border-green-200 text-[10px] px-1.5 py-0">
                     Selesai
@@ -253,7 +247,7 @@ export default function PurchaseOrderHistoryPage() {
               {expandedId === po.id && (
                 <div className="bg-slate-50/50 p-4 border-t border-slate-100 flex flex-col gap-3">
                   <div className="text-xs text-slate-500">
-                    <span className="font-medium">Diterima pada:</span> {po.receivedAt ? formatDate(po.receivedAt) : "-"}
+                    <span className="font-medium">Diterima pada:</span> {po.receivedAt ? formatTanggal(po.receivedAt) : "-"}
                   </div>
                   
                   <div className="flex flex-col gap-2">

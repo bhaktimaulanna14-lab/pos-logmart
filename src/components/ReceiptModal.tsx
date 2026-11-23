@@ -1,3 +1,4 @@
+import { formatRupiah } from "@/lib/format";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
@@ -119,20 +120,20 @@ export function ReceiptModal({ isOpen, onClose, transactionId }: ReceiptModalPro
                 {!!transaction.discount && (
                   <div className="flex justify-between">
                     <span>Hemat promo</span>
-                    <span>-Rp {transaction.discount.toLocaleString("id-ID")}</span>
+                    <span>-{formatRupiah(transaction.discount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-sm">
                   <span>Total</span>
-                  <span>Rp {transaction.total?.toLocaleString("id-ID")}</span>
+                  <span>{formatRupiah(transaction.total)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="capitalize">{transaction.paymentMethod}</span>
-                  <span>Rp {transaction.cashReceived?.toLocaleString("id-ID")}</span>
+                  <span>{formatRupiah(transaction.cashReceived)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Kembali</span>
-                  <span>Rp {transaction.change?.toLocaleString("id-ID")}</span>
+                  <span>{formatRupiah(transaction.change)}</span>
                 </div>
               </div>
 

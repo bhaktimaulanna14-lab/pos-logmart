@@ -1,5 +1,6 @@
 "use client";
 
+import { formatRupiah, formatRupiahSingkat } from "@/lib/format";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
@@ -33,11 +34,6 @@ type ShiftSummary = { shiftType: string; shifts: number; totalSales: number; tot
 type MovingItem = { productId: string; name: string; qty: number; perDay: number; stock?: number };
 type AttendanceRow = { userId: string; userName: string; totalShifts: number; totalWorkMs: number; avgWorkMs: number; openShifts: number };
 
-const rp = (n: number) => `Rp ${Math.round(n || 0).toLocaleString("id-ID")}`;
-const compactRp = (n: number) =>
-  n >= 1_000_000 ? `Rp ${(n / 1_000_000).toLocaleString("id-ID", { maximumFractionDigits: 1 })}jt`
-  : n >= 1_000 ? `Rp ${Math.round(n / 1_000).toLocaleString("id-ID")}rb`
-  : `Rp ${n}`;
 
 function formatMs(ms: number) {
   const totalMins = Math.floor(ms / 60000);
@@ -199,7 +195,7 @@ export default function ReportsPage() {
             <DollarSign className="h-4 w-4 text-brand-green" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "…" : rp(summary?.totalRevenue ?? 0)}</div>
+            <div className="text-2xl font-bold">{isLoading ? "…" : formatRupiah(summary?.totalRevenue ?? 0)}</div>
             {!isLoading && <ChangeBadge pct={summary?.revenueChangePct} />}
           </CardContent>
         </Card>
@@ -219,7 +215,7 @@ export default function ReportsPage() {
             <TrendingUp className="h-4 w-4 text-brand-green-light" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "…" : rp(summary?.avgTransaction ?? 0)}</div>
+            <div className="text-2xl font-bold">{isLoading ? "…" : formatRupiah(summary?.avgTransaction ?? 0)}</div>
             <p className="text-xs text-slate-500 font-medium mt-1">Per transaksi</p>
           </CardContent>
         </Card>
@@ -245,8 +241,8 @@ export default function ReportsPage() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tickFormatter={compactRp} tick={{ fontSize: 12 }} width={80} />
-                  <Tooltip formatter={(value) => [rp(Number(value)), "Pendapatan"]} cursor={{ fill: "rgba(0,0,0,0.05)" }} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={formatRupiahSingkat} tick={{ fontSize: 12 }} width={80} />
+                  <Tooltip formatter={(value) => [formatRupiah(Number(value)), "Pendapatan"]} cursor={{ fill: "rgba(0,0,0,0.05)" }} />
                   <Bar dataKey="sales" fill="url(#brandOrangeBar)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -283,7 +279,7 @@ export default function ReportsPage() {
                     <span className="w-6 h-6 shrink-0 rounded-full bg-brand-green/10 text-brand-green text-xs font-bold flex items-center justify-center">{i + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{p.name}</div>
-                      <div className="text-xs text-slate-500">{rp(p.revenue)}</div>
+                      <div className="text-xs text-slate-500">{formatRupiah(p.revenue)}</div>
                     </div>
                     <span className="text-sm font-semibold">{p.qty.toLocaleString("id-ID")}</span>
                   </li>
@@ -320,7 +316,7 @@ export default function ReportsPage() {
                       <div className={`text-sm ${pagi ? "text-brand-green" : "text-brand-orange"}`}>{s.shifts} shift</div>
                     </div>
                     <div className="text-right">
-                      <div className={`font-bold text-lg ${pagi ? "text-brand-green-dark" : "text-orange-900"}`}>{rp(s.totalSales)}</div>
+                      <div className={`font-bold text-lg ${pagi ? "text-brand-green-dark" : "text-orange-900"}`}>{formatRupiah(s.totalSales)}</div>
                       <div className={`text-xs ${pagi ? "text-brand-green" : "text-brand-orange"}`}>{s.totalTransactions.toLocaleString("id-ID")} transaksi</div>
                     </div>
                   </div>
