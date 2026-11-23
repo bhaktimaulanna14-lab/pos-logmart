@@ -25,6 +25,7 @@ type Product = {
   name: string;
   price: number;
   stock: number;
+  nearestExpiry?: string | null;
 };
 
 type CartItem = Product & { qty: number };
@@ -85,6 +86,7 @@ export default function PosPage() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [expiryWarning, setExpiryWarning] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -335,6 +337,11 @@ export default function PosPage() {
   // ── Cart ───────────────────────────────────────────────────────────────────
 
   const addToCart = (product: Product) => {
+    // Peringatan saja (tidak memblokir): masih ada stok tercatat yang sudah lewat tanggal kadaluarsa.
+    const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+    setExpiryWarning(product.nearestExpiry && product.nearestExpiry < today
+      ? `${product.name}: ada stok kadaluarsa (${new Date(product.nearestExpiry + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}). Cek fisik barang sebelum dijual.`
+      : "");
     setCart((prev) => {
       const existing = prev.find((i) => i.id === product.id);
       if (existing) {
@@ -634,6 +641,12 @@ export default function PosPage() {
                   }
                 </div>
               </form>
+              {expiryWarning && (
+                <div role="alert" className="mt-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span className="flex-1">{expiryWarning}</span>
+                  <button type="button" aria-label="Tutup peringatan" className="font-bold" onClick={() => setExpiryWarning("")}>×</button>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-auto p-4">

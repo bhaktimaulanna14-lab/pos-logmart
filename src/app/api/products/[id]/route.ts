@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { products, categories, stockMovements } from "@/db/schema";
 import { and, eq, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { consumeBatches } from "@/lib/batches";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 type Params = { params: Promise<{ id: string }> };
@@ -65,6 +66,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
       tx.update(products).set(updateData).where(eq(products.id, id)).run();
 
+      if (newStock !== null && newStock < current.stockQty) consumeBatches(tx, id, current.stockQty - newStock);
       if (newStock !== null && newStock !== current.stockQty) {
         tx.insert(stockMovements).values({
           id: randomUUID(),

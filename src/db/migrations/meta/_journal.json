@@ -36,6 +36,13 @@
       "when": 1795406105397,
       "tag": "0004_void_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1795416653594,
+      "tag": "0005_product_batches",
+      "breakpoints": true
     }
   ]
 }

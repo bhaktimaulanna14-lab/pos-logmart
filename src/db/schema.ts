@@ -118,6 +118,26 @@ export const stockMovements = sqliteTable("stock_movements", {
   index("stock_movements_type_time_idx").on(t.type, t.createdAt),
 ]);
 
+/**
+ * Sebagian stok barang yang punya tanggal kadaluarsa. Stok tanpa tanggal = products.stock_qty - total batch.
+ * Setiap pengurangan stok memakai batch dengan kadaluarsa terdekat lebih dulu (FIFO), lihat src/lib/batches.ts.
+ */
+export const productBatches = sqliteTable("product_batches", {
+  id: text("id").primaryKey(),
+  productId: text("product_id")
+    .notNull()
+    .references(() => products.id),
+  expiryDate: text("expiry_date").notNull(), // YYYY-MM-DD (WIB)
+  remainingQty: integer("remaining_qty").notNull(),
+  source: text("source").notNull(), // manual, po
+  referenceId: text("reference_id"), // ID PO
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+}, (t) => [
+  index("product_batches_product_expiry_idx").on(t.productId, t.expiryDate),
+]);
+
 export const purchaseOrders = sqliteTable("purchase_orders", {
   id: text("id").primaryKey(),
   poNumber: text("po_number").notNull().unique(),

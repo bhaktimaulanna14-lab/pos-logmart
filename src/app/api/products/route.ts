@@ -4,6 +4,7 @@ import { products, categories, stockMovements } from "@/db/schema";
 import { randomUUID } from "crypto";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 import { eq, like, or, and, sql, asc } from "drizzle-orm";
+import { nearestExpirySql, storeDatePlus } from "@/lib/batches";
 
 // GET all products with category name, supports search and filter
 export async function GET(request: NextRequest) {
@@ -32,6 +33,11 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(products.categoryId, categoryId));
     }
 
+    // ?expiry=soon: barang dengan stok yang sudah/akan kadaluarsa dalam 30 hari.
+    if (searchParams.get("expiry") === "soon") {
+      conditions.push(sql`${nearestExpirySql} <= ${storeDatePlus(30)}`);
+    }
+
     // Pagination opsional: ?page=1&pageSize=50. Tanpa `page` = semua (perilaku lama).
     const pageParam = searchParams.get("page");
     const page = Math.max(1, Number(pageParam) || 1);
@@ -56,6 +62,7 @@ export async function GET(request: NextRequest) {
         stockQty: products.stockQty,
         minStock: products.minStock,
         isActive: products.isActive,
+        nearestExpiry: nearestExpirySql,
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))

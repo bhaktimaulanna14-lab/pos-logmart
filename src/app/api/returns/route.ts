@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { returns, products, stockMovements, users, transactions, transactionItems } from "@/db/schema";
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { consumeBatches } from "@/lib/batches";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 // GET: List all returns
@@ -188,6 +189,7 @@ export async function PATCH(request: NextRequest) {
           .set({ stockQty: sql`${products.stockQty} + ${qtyChange}` })
           .where(eq(products.id, returnRecord.productId))
           .run();
+        if (qtyChange < 0) consumeBatches(tx, returnRecord.productId, -qtyChange);
 
         tx.insert(stockMovements).values({
           id: randomUUID(),

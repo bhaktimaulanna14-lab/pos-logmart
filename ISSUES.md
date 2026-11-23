@@ -220,6 +220,19 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 - Produk dan promo dipindah ke kategori baru. Kategori lama dan kategori kosong (PROMO ×3) dihapus.
 - **Deploy:** backup DB, lalu `node scripts/simplify-categories.js sqlite.db` (pratinjau), lalu tambahkan `--apply`. Skrip idempoten dan berhenti bila ada kategori dengan produk yang belum terpetakan.
 
+### - [x] F11. Tanggal kadaluarsa barang (batch + FIFO) — P2 (diminta user, 23 Nov 2026)
+- Tabel `product_batches` menyimpan sebagian stok yang punya tanggal kadaluarsa. Stok tanpa tanggal = stok − total batch.
+- Cara mencatat:
+  - **Manajemen Barang:** ikon kalender → dialog Kadaluarsa (tanggal + jumlah, boleh beberapa baris, total ≤ stok).
+  - **Terima PO:** kolom tanggal kadaluarsa per barang (opsional).
+- **FIFO** (`src/lib/batches.ts` `consumeBatches`): setiap pengurangan stok memakai tanggal terdekat dulu, yaitu penjualan, retur ke supplier, koreksi stok turun, dan impor Excel yang menurunkan stok.
+- **Peringatan:**
+  - badge dan filter "Kadaluarsa ≤ 30 hari" di daftar barang;
+  - kartu di dashboard (`/api/dashboard/expiring`);
+  - banner di kasir saat scan barang yang punya stok lewat tanggal (tidak memblokir).
+- **Batasan:** barang dari transaksi yang dibatalkan, retur pelanggan, dan koreksi stok naik kembali sebagai stok tanpa tanggal.
+- **Deploy:** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db` (membuat tabel `product_batches`).
+
 ## B. Bug & keamanan dari review kode
 
 ### - [x] B1. Simpan transaksi tidak aman dan tidak atomik — P1

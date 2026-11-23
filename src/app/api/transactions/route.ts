@@ -5,6 +5,7 @@ import { transactions, transactionItems, products, stockMovements, shifts, users
 import { eq, sql, like, and, desc, inArray, gte, lt } from "drizzle-orm";
 import { resolvePeriod } from "@/lib/report-period";
 import { priceCart } from "@/lib/promotions";
+import { consumeBatches } from "@/lib/batches";
 import { randomUUID } from "crypto";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
@@ -205,6 +206,7 @@ export async function POST(request: NextRequest) {
           .set({ stockQty: sql`${products.stockQty} - ${line.qty}` })
           .where(eq(products.id, line.productId))
           .run();
+        consumeBatches(tx, line.productId, line.qty);
         tx.insert(stockMovements).values({
           id: randomUUID(),
           productId: line.productId,

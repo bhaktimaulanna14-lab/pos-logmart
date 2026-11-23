@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { purchaseReturns, products, stockMovements } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { consumeBatches } from "@/lib/batches";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 export async function GET() {
@@ -79,6 +80,7 @@ export async function POST(request: NextRequest) {
         .set({ stockQty: sql`${products.stockQty} - ${qtyNum}` })
         .where(eq(products.id, productId))
         .run();
+      consumeBatches(tx, productId, qtyNum);
 
       tx.insert(stockMovements).values({
         id: randomUUID(),

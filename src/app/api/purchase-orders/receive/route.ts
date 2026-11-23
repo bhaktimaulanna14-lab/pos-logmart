@@ -3,10 +3,11 @@ import { db } from "@/db";
 import { purchaseOrders, purchaseOrderItems, products, stockMovements } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { addBatch, isValidDate } from "@/lib/batches";
 import { requireSession, toInt, ApiError, errorResponse } from "@/lib/api-auth";
 
 // Terima barang dari sebuah PO dan tambahkan stok — semuanya dalam satu transaksi.
-// receivedItems: { productId, qty }[]  (qty 0 = barang itu tidak datang)
+// receivedItems: { productId, qty, expiryDate? }[]  (qty 0 = barang itu tidak datang; expiryDate YYYY-MM-DD opsional)
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireSession("manajer");
@@ -20,10 +21,13 @@ export async function POST(request: NextRequest) {
     }
 
     const qtyByProduct = new Map<string, number>();
+    const batches: { productId: string; qty: number; expiryDate: string }[] = [];
     for (const item of receivedItems) {
       const qty = toInt(item?.qty, 0);
       if (!item?.productId || qty === null) throw new ApiError(400, "Jumlah diterima harus bilangan bulat 0 atau lebih");
+      if (item.expiryDate && !isValidDate(item.expiryDate)) throw new ApiError(400, "Tanggal kadaluarsa tidak valid");
       qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) ?? 0) + qty);
+      if (item.expiryDate && qty > 0) batches.push({ productId: item.productId, qty, expiryDate: item.expiryDate });
     }
     if ([...qtyByProduct.values()].every((q) => q === 0)) {
       throw new ApiError(400, "Isi jumlah diterima minimal untuk satu barang");
@@ -66,6 +70,8 @@ export async function POST(request: NextRequest) {
           referenceId: poId,
         }).run();
       }
+
+      for (const b of batches) addBatch(tx, b.productId, b.expiryDate, b.qty, "po", poId);
 
       tx.update(purchaseOrders)
         .set({ status: "diterima", receivedAt: new Date().toISOString() })

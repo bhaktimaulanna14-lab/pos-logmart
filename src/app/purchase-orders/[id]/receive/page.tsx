@@ -36,6 +36,7 @@ export default function ReceiveGoodsPage({
   const [isLoading, setIsLoading] = useState(true);
   
   const [receivedQty, setReceivedQty] = useState<Record<string, number>>({});
+  const [expiry, setExpiry] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmWarning, setShowConfirmWarning] = useState(false);
@@ -111,7 +112,8 @@ export default function ReceiveGoodsPage({
     try {
       const receivedItemsPayload = po.items.map((item: any) => ({
         productId: item.productId,
-        qty: receivedQty[item.id] ?? 0
+        qty: receivedQty[item.id] ?? 0,
+        expiryDate: expiry[item.id] || undefined,
       }));
       
       const res = await fetch("/api/purchase-orders/receive", {
@@ -205,13 +207,14 @@ export default function ReceiveGoodsPage({
               <TableHead>Barcode</TableHead>
               <TableHead className="text-center">Qty Dipesan</TableHead>
               <TableHead className="text-center w-[160px]">Qty Diterima</TableHead>
+              <TableHead className="text-center w-[170px]">Kadaluarsa</TableHead>
               <TableHead className="text-center">Selisih</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {po.items?.length === 0 ? (
                <TableRow>
-                 <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                 <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                    <Package className="w-8 h-8 mx-auto mb-2 opacity-20" />
                    Tidak ada barang
                  </TableCell>
@@ -232,6 +235,15 @@ export default function ReceiveGoodsPage({
                       value={received}
                       onChange={(e) => handleQtyChange(item.id, e.target.value)}
                       className="w-24 mx-auto text-center font-bold"
+                    />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Input
+                      type="date"
+                      aria-label={`Tanggal kadaluarsa ${item.name}`}
+                      value={expiry[item.id] ?? ""}
+                      onChange={(e) => setExpiry((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      className="w-[150px] mx-auto"
                     />
                   </TableCell>
                   <TableCell className="text-center">

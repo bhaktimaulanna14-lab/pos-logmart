@@ -9,6 +9,7 @@ import {
   Wallet,
   AlertTriangle,
   BarChart3,
+  CalendarClock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export default function Home() {
   });
   const [lowStockItems, setLowStockItems] = useState<{name: string, stock: number, min: number}[]>([]);
   const [chartData, setChartData] = useState<MonthlyData[]>([]);
+  const [expiring, setExpiring] = useState<{ items: { id: string; name: string; expiryDate: string; qty: number }[]; today: string; total: number }>({ items: [], today: "", total: 0 });
 
   const { user, loading } = useSession();
 
@@ -73,6 +75,13 @@ export default function Home() {
         if (json.success) {
           setLowStockItems(json.data);
         }
+      })
+      .catch((err) => console.error(err));
+
+    fetch("/api/dashboard/expiring")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setExpiring({ items: json.data, today: json.today, total: json.total });
       })
       .catch((err) => console.error(err));
 
@@ -198,6 +207,37 @@ export default function Home() {
                 </Card>
               </Link>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Kadaluarsa (Hanya Manajer) */}
+      {role === "manajer" && expiring.items.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <CalendarClock className="w-5 h-5 text-red-500" />
+            Barang Kadaluarsa / Akan Kadaluarsa (30 hari)
+            {expiring.total > expiring.items.length && <span className="text-sm font-normal text-muted-foreground">· {expiring.total} batch</span>}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {expiring.items.map((item) => {
+              const expired = item.expiryDate < expiring.today;
+              return (
+                <Link href="/products" key={item.id} className="block transition-transform active:scale-95">
+                  <Card className={expired ? "border-red-200 bg-red-50/40 hover:border-red-400" : "border-amber-200 bg-amber-50/30 hover:border-amber-400"}>
+                    <CardContent className="p-4 flex flex-col gap-2">
+                      <div className="font-semibold text-slate-800 line-clamp-1">{item.name}</div>
+                      <div className="flex items-center justify-between mt-auto">
+                        <div className="text-sm">
+                          {new Date(item.expiryDate + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })} · <span className="font-bold">{item.qty} pcs</span>
+                        </div>
+                        <Badge variant={expired ? "destructive" : "secondary"} className="text-[10px] px-1.5 py-0">{expired ? "Sudah Lewat" : "Segera"}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

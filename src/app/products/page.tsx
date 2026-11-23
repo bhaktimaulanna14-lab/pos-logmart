@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PlusCircle, Search, Edit, Trash2, AlertCircle, Printer, Loader2, Package, Download } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, AlertCircle, Printer, Loader2, Package, Download, CalendarClock } from "lucide-react";
+import { ExpiryDialog, expiryClass, formatExpiry } from "./ExpiryDialog";
 
 type Product = {
   id: string;
@@ -30,6 +31,7 @@ type Product = {
   stockQty: number;
   minStock: number;
   isActive: boolean;
+  nearestExpiry: string | null;
 };
 
 const PAGE_SIZE = 50;
@@ -47,6 +49,8 @@ export default function ProductsPage() {
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [expiryFilter, setExpiryFilter] = useState("all");
+  const [expiryProduct, setExpiryProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -89,12 +93,13 @@ export default function ProductsPage() {
   }, []);
 
   // Data diambil per halaman (PAGE_SIZE barang) supaya halaman tetap ringan walau ada ribuan barang.
-  const fetchProducts = useCallback(async (search: string, catId: string, pageNum = 1) => {
+  const fetchProducts = useCallback(async (search: string, catId: string, pageNum = 1, expiry = "all") => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE) });
       if (search) params.append("q", search);
       if (catId && catId !== "all") params.append("categoryId", catId);
+      if (expiry === "soon") params.append("expiry", "soon");
 
       const res = await fetch(`/api/products?${params.toString()}`);
       const json = await res.json();
@@ -126,8 +131,8 @@ export default function ProductsPage() {
   }, [fetchCategories, fetchLowStockCount]);
 
   useEffect(() => {
-    fetchProducts(searchTerm, categoryFilter, page);
-  }, [searchTerm, categoryFilter, page, fetchProducts]);
+    fetchProducts(searchTerm, categoryFilter, page, expiryFilter);
+  }, [searchTerm, categoryFilter, page, expiryFilter, fetchProducts]);
 
   // Hanya render satu tata letak (tabel desktop ATAU kartu mobile), bukan keduanya.
   useEffect(() => {
@@ -551,13 +556,24 @@ export default function ProductsPage() {
         <div className="w-[200px]">
           <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v ?? "all"); setPage(1); }}>
             <SelectTrigger>
-              <SelectValue placeholder="Semua Kategori" />
+              <SelectValue placeholder="Semua Kategori">{(v: string) => categories.find((c) => c.id === v)?.name ?? "Semua Kategori"}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Kategori</SelectItem>
               {categories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-[200px]">
+          <Select value={expiryFilter} onValueChange={(v) => { setExpiryFilter(v ?? "all"); setPage(1); }}>
+            <SelectTrigger aria-label="Filter kadaluarsa">
+              <SelectValue placeholder="Semua Kadaluarsa">{(v: string) => (v === "soon" ? "Kadaluarsa ≤ 30 hari" : "Semua Kadaluarsa")}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Kadaluarsa</SelectItem>
+              <SelectItem value="soon">Kadaluarsa ≤ 30 hari</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -583,6 +599,7 @@ export default function ProductsPage() {
               <TableHead className="text-right">Harga Jual</TableHead>
               <TableHead className="text-right">Harga Modal</TableHead>
               <TableHead className="text-center">Stok</TableHead>
+              <TableHead className="text-center">Kadaluarsa</TableHead>
               <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
@@ -590,7 +607,7 @@ export default function ProductsPage() {
           <TableBody>
               {products.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-64 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="h-64 text-center text-muted-foreground">
                     {isLoading ? (
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
@@ -634,6 +651,11 @@ export default function ProductsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">
+                    {product.nearestExpiry ? (
+                      <Badge variant="outline" className={expiryClass(product.nearestExpiry)}>{formatExpiry(product.nearestExpiry)}</Badge>
+                    ) : "-"}
+                  </TableCell>
+                  <TableCell className="text-center">
                     {product.isActive ? (
                       <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">Aktif</Badge>
                     ) : (
@@ -642,6 +664,9 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" title="Kadaluarsa" onClick={() => setExpiryProduct(product)}>
+                        <CalendarClock className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" title="Edit" onClick={() => { setEditingProduct(product); setIsProductDialogOpen(true); }}>
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -739,9 +764,15 @@ export default function ProductsPage() {
                     <Badge variant={product.stockQty <= 0 ? "destructive" : product.stockQty <= product.minStock ? "secondary" : "default"}>
                       {product.stockQty}
                     </Badge>
+                    {product.nearestExpiry && (
+                      <Badge variant="outline" className={expiryClass(product.nearestExpiry)}>Exp {formatExpiry(product.nearestExpiry)}</Badge>
+                    )}
                   </div>
                   
                   <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Kadaluarsa" onClick={() => setExpiryProduct(product)}>
+                      <CalendarClock className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Edit" onClick={() => { setEditingProduct(product); setIsProductDialogOpen(true); }}>
                       <Edit className="w-4 h-4 text-brand-green" />
                     </Button>
@@ -758,6 +789,12 @@ export default function ProductsPage() {
       )}
 
       {pagination}
+
+      <ExpiryDialog
+        product={expiryProduct}
+        onClose={() => setExpiryProduct(null)}
+        onSaved={() => fetchProducts(searchTerm, categoryFilter, page, expiryFilter)}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { categories, products, purchaseOrders, purchaseOrderItems, returns, stoc
 import { eq } from "drizzle-orm";
 import { randomUUID as uuidv4 } from "crypto";
 import categoryMap from "./category-map.json";
+import { consumeBatches } from "@/lib/batches";
 
 // Nama kategori lama/beda ejaan dari Excel diarahkan ke kategori baku agar tidak muncul kategori dobel lagi.
 const normCat = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
@@ -94,6 +95,7 @@ export function importProducts(tx: any, rows: Record<string, unknown>[]) {
     }
     
     const diff = stockQty - oldStock;
+    if (diff < 0) consumeBatches(tx, productId, -diff);
     if (diff !== 0) {
       tx.insert(stockMovements).values({
         id: uuidv4(),

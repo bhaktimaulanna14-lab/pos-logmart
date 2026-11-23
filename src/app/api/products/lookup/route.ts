@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { like, or, eq, and } from "drizzle-orm";
 import { requireSession } from "@/lib/api-auth";
+import { nearestExpirySql } from "@/lib/batches";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
         name: products.name,
         price: products.price,
         stock: products.stockQty,
+        nearestExpiry: nearestExpirySql,
       })
       .from(products)
       .where(

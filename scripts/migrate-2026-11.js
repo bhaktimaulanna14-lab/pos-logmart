@@ -77,6 +77,20 @@ db.transaction(() => {
   if (!hasColumn("transactions", "voided_by")) run("tambah kolom transactions.voided_by", "ALTER TABLE transactions ADD voided_by text REFERENCES users(id)");
   if (!hasColumn("transactions", "void_reason")) run("tambah kolom transactions.void_reason", "ALTER TABLE transactions ADD void_reason text");
 
+  // 3c. Tanggal kadaluarsa per batch stok
+  if (!hasTable("product_batches")) {
+    run("buat tabel product_batches", `
+      CREATE TABLE product_batches (
+        id text PRIMARY KEY NOT NULL,
+        product_id text NOT NULL REFERENCES products(id),
+        expiry_date text NOT NULL,
+        remaining_qty integer NOT NULL,
+        source text NOT NULL,
+        reference_id text,
+        created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL
+      )`);
+  }
+
   // 4. Index (mempercepat laporan, pencarian, dan kasir)
   const indexes = [
     "CREATE UNIQUE INDEX IF NOT EXISTS purchase_returns_return_number_unique ON purchase_returns (return_number)",
@@ -95,6 +109,7 @@ db.transaction(() => {
     "CREATE INDEX IF NOT EXISTS promotions_period_idx ON promotions (is_active, start_date, end_date)",
     "CREATE INDEX IF NOT EXISTS promotions_product_idx ON promotions (product_id)",
     "CREATE INDEX IF NOT EXISTS promotions_category_idx ON promotions (category_id)",
+    "CREATE INDEX IF NOT EXISTS product_batches_product_expiry_idx ON product_batches (product_id, expiry_date)",
   ];
   const before = db.prepare("select count(*) n from sqlite_master where type='index'").get().n;
   for (const sql of indexes) db.exec(sql);
