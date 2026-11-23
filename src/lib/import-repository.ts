@@ -3,11 +3,17 @@ import { db } from "@/db";
 import { categories, products, purchaseOrders, purchaseOrderItems, returns, stockMovements, transactions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID as uuidv4 } from "crypto";
+import categoryMap from "./category-map.json";
+
+// Nama kategori lama/beda ejaan dari Excel diarahkan ke kategori baku agar tidak muncul kategori dobel lagi.
+const normCat = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
+const categoryAlias = new Map(Object.entries(categoryMap).flatMap(([t, olds]) => [t, ...olds].map((o) => [normCat(o), t] as const)));
+const canonicalCategory = (name: string) => categoryAlias.get(normCat(name)) ?? name;
 
 export function importCategories(tx: any, rows: Record<string, unknown>[]) {
   let added = 0;
   for (const row of rows) {
-    const name = String(row["Nama"] || "").trim();
+    const name = canonicalCategory(String(row["Nama"] || "").trim());
     const desc = String(row["Keterangan"] || "").trim();
     
     if (!name) continue;
@@ -39,7 +45,7 @@ export function importProducts(tx: any, rows: Record<string, unknown>[]) {
   for (const row of rows) {
     const barcode = String(row["SKU/Barcode"] || "").trim();
     const name = String(row["Nama"] || "").trim();
-    const catName = String(row["Kategori"] || "").trim();
+    const catName = canonicalCategory(String(row["Kategori"] || "").trim());
     const price = Number(row["Harga"]) || 0;
     const cost = row["Modal"] ? Number(row["Modal"]) : 0;
     const stockQty = row["Stok"] ? Number(row["Stok"]) : 0;

@@ -215,6 +215,11 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 - Tombol **Unduh PDF** di detail PO, dan tawaran unduh langsung setelah PO dibuat. `GET /api/purchase-orders/[id]/pdf` (manajer saja).
 - Isi: kop toko, no. PO, tanggal, supplier, status, tabel barcode/nama/jumlah, catatan, kolom tanda tangan. Tanpa harga modal.
 
+### - [x] F10. Sederhanakan kategori barang (118 → 23) — P2 (diminta user, 23 Nov 2026)
+- Pemetaan nama lama → nama baru ada di `src/lib/category-map.json`. File ini juga dipakai impor Excel, jadi nama lama di Excel (mis. "SHAMPOO", "TISSU") masuk ke kategori baru dan tidak membuat kategori dobel lagi.
+- Produk dan promo dipindah ke kategori baru. Kategori lama dan kategori kosong (PROMO ×3) dihapus.
+- **Deploy:** backup DB, lalu `node scripts/simplify-categories.js sqlite.db` (pratinjau), lalu tambahkan `--apply`. Skrip idempoten dan berhenti bila ada kategori dengan produk yang belum terpetakan.
+
 ## B. Bug & keamanan dari review kode
 
 ### - [x] B1. Simpan transaksi tidak aman dan tidak atomik — P1
