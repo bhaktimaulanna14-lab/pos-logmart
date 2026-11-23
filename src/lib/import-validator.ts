@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { products } from "@/db/schema";
+import { parseExpiryCell } from "@/lib/batches";
 
 export interface ValidationError {
   row: number;
@@ -23,6 +24,8 @@ export function validateImportRow(entity: string, rowNumber: number, rowData: Ro
     if (!isNonNegativeInt(rowData["Harga"])) err("Harga harus berupa angka bulat 0 atau lebih");
     if (rowData["Modal"] !== undefined && rowData["Modal"] !== "" && !isNonNegativeInt(rowData["Modal"])) err("Modal harus berupa angka bulat 0 atau lebih");
     if (rowData["Stok"] !== undefined && rowData["Stok"] !== "" && !isNonNegativeInt(rowData["Stok"])) err("Stok harus berupa angka bulat 0 atau lebih");
+    const expiry = parseExpiryCell(rowData["Kadaluarsa"], Number(rowData["Stok"]) || 0);
+    if (typeof expiry === "string") err(expiry);
   } else if (entity === "categories") {
     if (!rowData["Nama"]) err("Nama kategori wajib diisi");
   } else if (entity === "purchase-orders") {

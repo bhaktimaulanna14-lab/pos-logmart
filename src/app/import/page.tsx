@@ -167,7 +167,7 @@ export default function ImportPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
-                  { id: "products", title: "Barang (Produk)", desc: "Impor katalog barang, harga, dan jumlah stok." },
+                  { id: "products", title: "Barang (Produk)", desc: "Impor katalog barang, harga, stok, dan kadaluarsa (opsional, mis. 2026-11-01 atau 2026-11-01 (2); 2026-12-10 (3))." },
                   { id: "categories", title: "Kategori Barang", desc: "Impor daftar kategori barang." },
                   { id: "purchase-orders", title: "Purchase Order (PO)", desc: "Impor riwayat pesanan pembelian dari pemasok." },
                   { id: "returns", title: "Retur", desc: "Impor data retur pembelian atau penjualan." }

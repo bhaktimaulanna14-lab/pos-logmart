@@ -235,6 +235,10 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 - **Deploy (kolom `batch_usage`):** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db`.
 - **Deploy:** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db` (membuat tabel `product_batches`).
 - Stok bertanggal tidak pernah melebihi stok. Contoh: stok −5 lalu terima 10 → yang bertanggal hanya 5 (`addBatch`).
+- **Excel:**
+  - **Unduh Stok** punya kolom "Kadaluarsa", formatnya `2026-11-01 (2); 2026-12-10 (3)`.
+  - **Impor barang** menerima kolom opsional "Kadaluarsa" dengan format yang sama. Satu tanggal tanpa jumlah (teks atau sel tanggal) berarti seluruh stok.
+  - Kolom yang terisi mengganti semua tanggal barang itu, kolom kosong tidak mengubahnya. Parsernya `parseExpiryCell` di `src/lib/batches.ts`.
 - **Tes (lokal saja):** `node scripts/test-expiry.js sqlite-prod.db`. Langkah persiapannya ada di kepala file.
 
 ## B. Bug & keamanan dari review kode

@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { db } from "@/db";
-import { categories, products, purchaseOrders, purchaseOrderItems, returns, stockMovements, transactions } from "@/db/schema";
+import { categories, productBatches, products, purchaseOrders, purchaseOrderItems, returns, stockMovements, transactions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { randomUUID as uuidv4 } from "crypto";
 import categoryMap from "./category-map.json";
-import { consumeBatches } from "@/lib/batches";
+import { addBatch, consumeBatches, parseExpiryCell } from "@/lib/batches";
 
 // Nama kategori lama/beda ejaan dari Excel diarahkan ke kategori baku agar tidak muncul kategori dobel lagi.
 const normCat = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
@@ -96,6 +96,12 @@ export function importProducts(tx: any, rows: Record<string, unknown>[]) {
     
     const diff = stockQty - oldStock;
     if (diff < 0) consumeBatches(tx, productId, -diff);
+    // Kolom "Kadaluarsa" terisi = ganti seluruh stok bertanggal barang ini (sudah divalidasi di import-validator).
+    const expiry = parseExpiryCell(row["Kadaluarsa"], stockQty);
+    if (Array.isArray(expiry)) {
+      tx.delete(productBatches).where(eq(productBatches.productId, productId)).run();
+      for (const b of expiry) addBatch(tx, productId, b.expiryDate, b.qty, "manual", "impor");
+    }
     if (diff !== 0) {
       tx.insert(stockMovements).values({
         id: uuidv4(),

@@ -13,6 +13,7 @@
  * Keluar dengan kode 1 bila ada cek yang gagal.
  */
 const Database = require("better-sqlite3");
+const ExcelJS = require("exceljs");
 
 const file = process.argv[2];
 if (!file || file === "sqlite.db") {
@@ -42,7 +43,8 @@ function client(cookie) {
 }
 
 (async () => {
-  const mgr = client(await login("uji-manajer"));
+  const mgrCookie = await login("uji-manajer");
+  const mgr = client(mgrCookie);
   const kasir = client(await login("uji-kasir"));
   const pick = new Database(file, { readonly: true });
   const [P, Q] = pick.prepare("select id, barcode from products where is_active = 1 and stock_qty >= 10 order by name limit 2").all();
@@ -108,6 +110,38 @@ function client(cookie) {
   r = await mgr.post("/api/purchase-orders/receive", { poId: r.json?.data?.id, receivedItems: [{ productId: Q.id, qty: 10, expiryDate: "2030-06-01" }] });
   const q = await batchesOf(Q.id);
   check("stok minus: batch dibatasi ke stok", q.stockQty === 5 && (await bstr(Q.id)) === "2030-06-01:5:po", `stok ${q.stockQty}, batch ${await bstr(Q.id)}`);
+
+  // Unduh Stok: kolom Kadaluarsa berisi semua tanggal + jumlah
+  const exRes = await fetch(base + "/api/products/excel?q=" + encodeURIComponent(P.barcode), { headers: { cookie: mgrCookie } });
+  const exWb = new ExcelJS.Workbook();
+  await exWb.xlsx.load(Buffer.from(await exRes.arrayBuffer()));
+  const exSheet = exWb.worksheets[0];
+  const col = exSheet.getRow(1).values.indexOf("Kadaluarsa");
+  check("unduh stok: kolom Kadaluarsa", col > 0 && exSheet.getRow(2).getCell(col).value === "2030-06-01 (4); 2099-12-31 (3)", col > 0 && exSheet.getRow(2).getCell(col).value);
+
+  // Impor barang dengan kolom Kadaluarsa
+  const info = new Database(file, { readonly: true }).prepare("select p.barcode, p.name, c.name cat, p.price, p.cost from products p join categories c on c.id = p.category_id where p.id = ?").get(Q.id);
+  const importXlsx = async (kadaluarsa, stok, path) => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Barang");
+    ws.addRow(["SKU/Barcode", "Nama", "Kategori", "Harga", "Modal", "Stok", "Kadaluarsa"]);
+    ws.addRow([info.barcode, info.name, info.cat, info.price, info.cost, stok, kadaluarsa]);
+    const fd = new FormData();
+    fd.append("file", new Blob([await wb.xlsx.writeBuffer()]), "uji.xlsx");
+    fd.append("entity", "products");
+    const res = await fetch(base + path, { method: "POST", headers: { cookie: mgrCookie }, body: fd });
+    return { status: res.status, json: await res.json().catch(() => null) };
+  };
+  r = await importXlsx("2027-01-05 (3); 01/02/2027", 8, "/api/import/preview");
+  check("impor: banyak tanggal tanpa jumlah ditolak", r.json?.data?.some?.((x) => !x.valid) || r.json?.errors?.length, JSON.stringify(r.json?.errors ?? r.json));
+  r = await importXlsx("2027-01-05 (3); 2027-01-05 (9)", 8, "/api/import/save");
+  check("impor: total melebihi stok ditolak", r.status === 400, r.status);
+  r = await importXlsx("2027-01-05 (3); 01/02/2027 (5)", 8, "/api/import/save");
+  check("impor: tanggal + jumlah tersimpan", r.status === 200 && (await bstr(Q.id)) === "2027-01-05:3:manual,2027-02-01:5:manual", `${r.status} ${await bstr(Q.id)}`);
+  r = await importXlsx(new Date(Date.UTC(2027, 5, 30)), 6, "/api/import/save");
+  check("impor: sel tanggal Excel = seluruh stok", r.status === 200 && (await bstr(Q.id)) === "2027-06-30:6:manual", `${r.status} ${await bstr(Q.id)}`);
+  r = await importXlsx("", 4, "/api/import/save");
+  check("impor: kolom kosong hanya FIFO stok turun", r.status === 200 && (await bstr(Q.id)) === "2027-06-30:4:manual", `${r.status} ${await bstr(Q.id)}`);
 
   await kasir.post("/api/shifts/close", { closingCash: 100000, shiftId: shift.id });
   for (const x of results) console.log(x.ok ? "PASS" : "FAIL", x.name, x.ok ? "" : JSON.stringify(x.detail));

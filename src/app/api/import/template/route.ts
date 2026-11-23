@@ -28,6 +28,8 @@ export async function GET(req: Request) {
         { header: "Harga", key: "price", width: 15 },
         { header: "Modal", key: "cost", width: 15 },
         { header: "Stok", key: "stock", width: 10 },
+        // Opsional. "2026-11-01" (seluruh stok) atau "2026-11-01 (2); 2026-12-10 (3)".
+        { header: "Kadaluarsa", key: "expiry", width: 32 },
       ];
     } else if (entity === "categories") {
       title = "Template_Kategori";

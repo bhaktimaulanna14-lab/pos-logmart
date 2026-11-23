@@ -61,3 +61,30 @@ export function addBatch(tx: Tx, productId: string, expiryDate: string, qty: num
     tx.insert(productBatches).values({ id: randomUUID(), productId, expiryDate, remainingQty: qty, source, referenceId }).run();
   }
 }
+
+/**
+ * Baca kolom "Kadaluarsa" dari Excel impor barang. Format yang diterima:
+ *   - sel tanggal Excel, "2026-11-01", "01/11/2026" atau "01-11-2026"  → seluruh stok bertanggal itu
+ *   - "2026-11-01 (2); 2026-12-10 (3)"                                → per tanggal dengan jumlah (format Unduh Stok)
+ * Hasil: null = kolom kosong (batch tidak diubah), string = pesan error, array = daftar batch baru.
+ */
+export function parseExpiryCell(value: unknown, stock: number): { expiryDate: string; qty: number }[] | string | null {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const toYmd = (s: string) => {
+    const dmy = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    return dmy ? `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}` : s;
+  };
+  const parts = value instanceof Date
+    ? [{ date: value.toISOString().slice(0, 10), qty: null as number | null }]
+    : String(value).split(/[;\n]/).map((p) => p.trim()).filter(Boolean).map((p) => {
+        const m = p.match(/^(\S+)\s*(?:\((\d+)\))?$/);
+        return { date: m ? toYmd(m[1]) : p, qty: m?.[2] ? Number(m[2]) : null };
+      });
+  if (parts.some((p) => !isValidDate(p.date))) return "Kadaluarsa: tanggal tidak dikenali (pakai 2026-11-01 atau 01/11/2026)";
+  if (parts.length > 1 && parts.some((p) => p.qty === null)) return "Kadaluarsa: bila lebih dari satu tanggal, tulis jumlahnya, mis. 2026-11-01 (2); 2026-12-10 (3)";
+  const rows = parts.map((p) => ({ expiryDate: p.date, qty: p.qty ?? stock }));
+  if (rows.some((r) => r.qty < 1)) return "Kadaluarsa: stok 0, tanggal kadaluarsa tidak bisa diisi";
+  const total = rows.reduce((s, r) => s + r.qty, 0);
+  if (total > stock) return `Kadaluarsa: jumlah bertanggal (${total}) melebihi stok (${stock})`;
+  return rows;
+}

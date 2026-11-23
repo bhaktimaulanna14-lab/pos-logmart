@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { db } from "@/db";
-import { products, categories } from "@/db/schema";
+import { products, categories, productBatches } from "@/db/schema";
 import { eq, like, or, and, asc } from "drizzle-orm";
 import { requireSession, errorResponse } from "@/lib/api-auth";
 import { generateExcelBuffer, generateExcelFilename } from "@/lib/excel-helper";
@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     const rows = await db
       .select({
+        id: products.id,
         barcode: products.barcode,
         name: products.name,
         categoryName: categories.name,
@@ -48,7 +49,14 @@ export async function GET(request: NextRequest) {
       { header: "Status Stok", key: "stockStatus", width: 14 },
       { header: "Nilai Stok (Rp)", key: "stockValue", width: 18 },
       { header: "Status Barang", key: "active", width: 14 },
+      { header: "Kadaluarsa", key: "expiry", width: 34 },
     ];
+
+    // Stok bertanggal per barang, format sama dengan kolom Kadaluarsa di impor: "2026-11-01 (2); 2026-12-10 (3)".
+    const expiryByProduct = new Map<string, string[]>();
+    for (const b of await db.select({ productId: productBatches.productId, expiryDate: productBatches.expiryDate, qty: productBatches.remainingQty }).from(productBatches).orderBy(asc(productBatches.expiryDate))) {
+      expiryByProduct.set(b.productId, [...(expiryByProduct.get(b.productId) ?? []), `${b.expiryDate} (${b.qty})`]);
+    }
 
     const data = rows.map((r) => ({
       barcode: r.barcode,
@@ -62,6 +70,7 @@ export async function GET(request: NextRequest) {
       // Stok minus tidak dihitung sebagai nilai negatif.
       stockValue: Math.max(r.stockQty, 0) * r.cost,
       active: r.isActive ? "Aktif" : "Nonaktif",
+      expiry: expiryByProduct.get(r.id)?.join("; ") ?? "",
     }));
 
     const totalValue = data.reduce((sum, r) => sum + r.stockValue, 0);
@@ -77,6 +86,7 @@ export async function GET(request: NextRequest) {
       stockStatus: "",
       stockValue: totalValue,
       active: "",
+      expiry: "",
     });
 
     const buffer = await generateExcelBuffer("Stok Barang", columns, data);
