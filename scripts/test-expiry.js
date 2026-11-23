@@ -3,13 +3,13 @@
  *
  * Persiapan (sekali):
  *   1. Salin database ke sqlite-prod.db (hapus dulu sqlite-prod.db-wal / -shm lama bila ada).
- *   2. node scripts/migrate-2026-11.js sqlite-prod.db
+ *   2. node scripts/zero-negative-stock.js sqlite-prod.db --apply && node scripts/migrate-2026-11.js sqlite-prod.db
  *   3. node scripts/seed-test-users.js sqlite-prod.db
  *   4. node scripts/dev-prod-copy.js            (server lokal di http://localhost:3000)
  * Jalankan:
  *   node scripts/test-expiry.js sqlite-prod.db
  *
- * File database dibutuhkan untuk menyiapkan kasus stok minus (API tidak mengizinkan stok negatif).
+ * File database dibutuhkan untuk memilih barang uji dan menguji pengaman stok minus langsung di DB.
  * Keluar dengan kode 1 bila ada cek yang gagal.
  */
 const Database = require("better-sqlite3");
@@ -101,15 +101,13 @@ function client(cookie) {
   check("retur ke supplier", r.status === 200, r.json?.message);
   check("retur memakai FIFO", (await bstr()) === "2030-06-01:4:po,2099-12-31:3:manual", await bstr());
 
-  // Stok minus: batch tidak boleh melebihi stok setelah barang diterima
+  // Pengaman DB: stok tidak bisa minus walau ditulis langsung
   const raw = new Database(file);
-  raw.prepare("update products set stock_qty = -5 where id = ?").run(Q.id);
+  let blocked = false;
+  try { raw.prepare("update products set stock_qty = -5 where id = ?").run(Q.id); } catch { blocked = true; }
   raw.prepare("delete from product_batches where product_id = ?").run(Q.id);
   raw.close();
-  r = await mgr.post("/api/purchase-orders", { supplierName: "Uji Supplier", orderDate: "2026-11-23", items: [{ productId: Q.id, qty: 10 }] });
-  r = await mgr.post("/api/purchase-orders/receive", { poId: r.json?.data?.id, receivedItems: [{ productId: Q.id, qty: 10, expiryDate: "2030-06-01" }] });
-  const q = await batchesOf(Q.id);
-  check("stok minus: batch dibatasi ke stok", q.stockQty === 5 && (await bstr(Q.id)) === "2030-06-01:5:po", `stok ${q.stockQty}, batch ${await bstr(Q.id)}`);
+  check("trigger DB menolak stok minus", blocked, blocked);
 
   // Unduh Stok: kolom Kadaluarsa berisi semua tanggal + jumlah
   const exRes = await fetch(base + "/api/products/excel?q=" + encodeURIComponent(P.barcode), { headers: { cookie: mgrCookie } });

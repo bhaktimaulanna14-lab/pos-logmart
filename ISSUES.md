@@ -252,6 +252,12 @@ Diuji di `localhost:3000` memakai `sqlite-prod.db` (salinan produksi: 2.174 bara
 - **Deploy (kolom `unit_cost`):** jalankan ulang `node scripts/migrate-2026-11.js sqlite.db`.
 - **Tes:** ikut di `scripts/test-expiry.js` (34 cek). Seed lokal kini menambah akun `uji-kasir2`.
 
+### - [x] F13. Stok tidak boleh minus — P2 (diminta user, 23 Nov 2026)
+- Semua jalur aplikasi (penjualan, retur, koreksi, impor) sudah menolak stok minus; stok minus yang ada berasal dari data lama (3 barang di produksi).
+- `scripts/zero-negative-stock.js <db> [--apply]` menjadikannya 0 dan mencatat `penyesuaian` (referensi `nolkan-stok-minus`) di riwayat stok.
+- `scripts/migrate-2026-11.js` langkah 5 memasang trigger `products_stock_not_negative_upd/_ins` (RAISE ABORT bila stok < 0), hanya bila sudah tidak ada stok minus.
+- **Deploy:** backup → `zero-negative-stock.js sqlite.db --apply` → `migrate-2026-11.js sqlite.db`.
+
 ## B. Bug & keamanan dari review kode
 
 ### - [x] B1. Simpan transaksi tidak aman dan tidak atomik — P1

@@ -121,6 +121,19 @@ db.transaction(() => {
   for (const sql of indexes) db.exec(sql);
   const after = db.prepare("select count(*) n from sqlite_master where type='index'").get().n;
   if (after > before) steps.push(`buat ${after - before} index baru`);
+
+  // 5. Pengaman: stok tidak boleh minus. Dipasang hanya bila data sudah bersih (lihat scripts/zero-negative-stock.js),
+  //    karena trigger juga menolak penambahan stok yang hasilnya masih minus.
+  const negative = db.prepare("select count(*) n from products where stock_qty < 0").get().n;
+  if (negative > 0) {
+    console.warn(`PERINGATAN: ${negative} barang stok minus. Jalankan scripts/zero-negative-stock.js --apply lalu migrasi ini lagi.`);
+  } else if (!db.prepare("select 1 from sqlite_master where type='trigger' and name='products_stock_not_negative_upd'").get()) {
+    run("pasang trigger stok tidak boleh minus", `
+      CREATE TRIGGER products_stock_not_negative_upd BEFORE UPDATE OF stock_qty ON products
+      WHEN NEW.stock_qty < 0 BEGIN SELECT RAISE(ABORT, 'Stok tidak boleh minus'); END;
+      CREATE TRIGGER IF NOT EXISTS products_stock_not_negative_ins BEFORE INSERT ON products
+      WHEN NEW.stock_qty < 0 BEGIN SELECT RAISE(ABORT, 'Stok tidak boleh minus'); END;`);
+  }
 })();
 
 const counts = db.prepare("select (select count(*) from transactions) trx, (select count(*) from transaction_items) items").get();
